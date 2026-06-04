@@ -1,26 +1,70 @@
 @import "tailwindcss";
 
+@theme {
+  /* Color de Acento Principal (Esmeralda) */
+  --color-brand: #00b06b;
+  --color-brand-hover: #00985a;
+  
+  /* Paleta de Fondos (Dark Theme Premium) */
+  --color-base: #111315;
+  --color-panel: #1a1d1f;
+  --color-card: #1e2225;
+  
+  /* Textos */
+  --color-content: #ffffff;
+  --color-content-muted: #a1a1aa; /* Equivalente a zinc-400 */
+  
+  /* Bordes y Divisores */
+  --color-line: #27272a; /* Equivalente a zinc-800 */
+  
+  /* Tipografía */
+  --font-sans: var(--font-inter);
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-base);
+  color: var(--color-content);
+  font-family: var(--font-sans), sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Utilidades personalizadas para la arquitectura UI */
+@layer utilities {
+  .glass-panel {
+    @apply bg-panel border border-line rounded-xl;
+  }
+  
+  .glass-card {
+    @apply bg-card border border-line rounded-xl;
+  }
+
+  .card-hover {
+    @apply transition-transform duration-200 hover:-translate-y-1 hover:shadow-lg hover:shadow-black/20;
+  }
+
+  .btn-primary {
+    @apply bg-brand hover:bg-brand-hover text-white font-medium rounded-lg px-4 py-2 transition-colors duration-200;
+  }
+
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Ocultar flechas de los inputs numéricos */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
 }

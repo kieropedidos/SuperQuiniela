@@ -1,0 +1,256 @@
+"use client";
+
+import { useState, useEffect, useMemo } from "react";
+import { Search, Trophy, Medal } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { calculateMatchPoints } from "@/scoringEngine";
+
+interface UserRankData {
+  id: string;
+  username: string;
+  points: number;
+  exactScores: number;
+}
+
+export default function LeaderboardPage() {
+  const [users, setUsers] = useState<UserRankData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    async function init() {
+      try {
+        // 1. Obtener la sesión del usuario actual
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          setCurrentUserId(session.user.id);
+        }
+
+        // 2. Obtener todas las quinielas y perfiles
+        const { data: quinielasData, error: quinielasError } = await supabase
+          .from("user_quinielas")
+          .select(`
+            user_id,
+            predictions,
+            knockout_predictions,
+            profiles (username, total_points)
+          `)
+          .eq("status", "approved");
+
+        if (quinielasError) throw quinielasError;
+
+        // 3. Obtener los resultados oficiales guardados
+        const { data: officialMatchesData } = await supabase
+          .from("official_matches")
+          .select("*");
+
+        const officialMatches = officialMatchesData || [];
+
+        // 4. Calcular puntos y cantidad de marcadores exactos en tiempo real
+        const calculated: UserRankData[] = (quinielasData || []).map((row: any) => {
+          let points = 0;
+          let exactScores = 0;
+
+          officialMatches.forEach((om: any) => {
+            const pred = row.predictions[om.match_id] || row.knockout_predictions[om.match_id];
+            if (pred && pred.homeGoals !== null && pred.awayGoals !== null) {
+              // Calcular puntos
+              const pts = calculateMatchPoints(
+                pred.homeGoals,
+                pred.awayGoals,
+                om.home_goals,
+                om.away_goals
+              );
+              points += pts;
+
+              // Contar aciertos exactos (goles idénticos de ambos lados)
+              if (pred.homeGoals === om.home_goals && pred.awayGoals === om.away_goals) {
+                exactScores += 1;
+              }
+            }
+          });
+
+          return {
+            id: row.user_id,
+            username: row.profiles?.username || "Usuario",
+            points,
+            exactScores,
+          };
+        });
+
+        // 5. Ordenar por puntos desc, luego por aciertos exactos desc, y luego alfabético
+        calculated.sort((a, b) => {
+          if (b.points !== a.points) return b.points - a.points;
+          if (b.exactScores !== a.exactScores) return b.exactScores - a.exactScores;
+          return a.username.localeCompare(b.username);
+        });
+
+        setUsers(calculated);
+      } catch (err) {
+        console.error("Error cargando el ranking:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    init();
+  }, []);
+
+  // Filtrar usuarios según la búsqueda
+  const filteredUsers = useMemo(() => {
+    if (!searchQuery.trim()) return users;
+    return users.filter((u) =>
+      u.username.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [users, searchQuery]);
+
+  // Construir el podio de los 3 mejores con fallbacks seguros
+  const top1 = users[0] || { username: "Pendiente", points: 0 };
+  const top2 = users[1] || { username: "Pendiente", points: 0 };
+  const top3 = users[2] || { username: "Pendiente", points: 0 };
+
+  const podiumUsers = [
+    { rank: 2, username: top2.username, points: top2.points, avatar: top2.username.charAt(0).toUpperCase() },
+    { rank: 1, username: top1.username, points: top1.points, avatar: top1.username.charAt(0).toUpperCase() },
+    { rank: 3, username: top3.username, points: top3.points, avatar: top3.username.charAt(0).toUpperCase() },
+  ];
+
+  return (
+    <div className="max-w-5xl mx-auto animate-in fade-in duration-500 pb-12">
+      
+      {/* Header & Search */}
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 mb-10 md:mb-16">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-extrabold text-content tracking-tight">Ranking Global</h1>
+          <p className="text-content-muted mt-2 text-base md:text-lg">Compite con todos los participantes de la liga y lidera el podio.</p>
+        </div>
+        
+        <div className="relative w-full md:w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-content-muted" size={18} />
+          <input 
+            type="text" 
+            placeholder="Buscar amigos..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-card border border-line rounded-full pl-10 pr-4 py-2.5 text-sm focus:border-brand outline-none transition-colors text-content placeholder-content-muted"
+          />
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="text-center py-24">
+          <div className="w-12 h-12 border-4 border-brand border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-content-muted font-medium">Calculando puntuaciones globales...</p>
+        </div>
+      ) : users.length === 0 ? (
+        <div className="text-center py-24 glass-panel p-8">
+          <Trophy size={48} className="text-brand/40 mx-auto mb-4" />
+          <h3 className="text-xl font-bold text-content">No hay quinielas inscritas</h3>
+          <p className="text-content-muted mt-2">Nadie ha participado todavía. ¡Sé el primero en inscribirte!</p>
+        </div>
+      ) : (
+        <>
+          {/* Podium Section */}
+          <div className="flex items-end justify-center gap-2 sm:gap-4 md:gap-8 mb-10 md:mb-16 h-52 sm:h-60 md:h-64 px-2">
+            
+            {/* Second Place */}
+            <div className="flex flex-col items-center relative z-10 translate-y-6 sm:translate-y-8 flex-1 max-w-[120px] sm:max-w-[140px] md:max-w-[160px]">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gray-400 flex items-center justify-center absolute -top-3 sm:-top-4 z-20 shadow-md">
+                <Medal size={14} className="text-white" />
+              </div>
+              <div className="glass-panel p-3 sm:p-5 md:p-6 flex flex-col items-center w-full border-t-4 border-gray-400 bg-gradient-to-b from-gray-400/10 to-transparent">
+                <div className="w-11 h-11 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full bg-gray-500 flex items-center justify-center text-base sm:text-lg md:text-xl font-bold mb-2 sm:mb-3">{podiumUsers[0].avatar}</div>
+                <p className="font-semibold text-content text-xs sm:text-sm mb-0.5 sm:mb-1 truncate max-w-full text-center">{podiumUsers[0].username}</p>
+                <p className="text-base sm:text-lg md:text-xl font-bold text-gray-400">{podiumUsers[0].points} <span className="text-[10px] sm:text-xs">PTS</span></p>
+              </div>
+            </div>
+
+            {/* First Place */}
+            <div className="flex flex-col items-center relative z-20 -translate-y-2 sm:-translate-y-4 flex-1 max-w-[130px] sm:max-w-[160px] md:max-w-[192px]">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-yellow-500 flex items-center justify-center absolute -top-4 sm:-top-5 z-20 shadow-[0_0_15px_rgba(234,179,8,0.5)]">
+                <Trophy size={16} className="text-white sm:hidden" />
+                <Trophy size={20} className="text-white hidden sm:block" />
+              </div>
+              <div className="glass-panel p-4 sm:p-6 md:p-8 flex flex-col items-center w-full border-t-4 border-yellow-500 bg-gradient-to-b from-yellow-500/10 to-transparent shadow-[0_0_30px_rgba(234,179,8,0.1)]">
+                <div className="w-14 h-14 sm:w-18 sm:h-18 md:w-20 md:h-20 rounded-full border-2 border-yellow-500 bg-yellow-600 flex items-center justify-center text-xl sm:text-2xl md:text-3xl font-bold mb-2 sm:mb-4 shadow-[0_0_20px_rgba(234,179,8,0.3)]">{podiumUsers[1].avatar}</div>
+                <p className="font-bold text-yellow-500 text-sm sm:text-base mb-0.5 sm:mb-1 truncate max-w-full text-center">{podiumUsers[1].username}</p>
+                <p className="text-xl sm:text-2xl md:text-3xl font-black text-content">{podiumUsers[1].points} <span className="text-xs sm:text-sm text-content-muted font-normal">PTS</span></p>
+              </div>
+            </div>
+
+            {/* Third Place */}
+            <div className="flex flex-col items-center relative z-10 translate-y-8 sm:translate-y-10 md:translate-y-12 flex-1 max-w-[120px] sm:max-w-[140px] md:max-w-[160px]">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-amber-700 flex items-center justify-center absolute -top-3 sm:-top-4 z-20 shadow-md">
+                <Medal size={14} className="text-white" />
+              </div>
+              <div className="glass-panel p-3 sm:p-5 md:p-6 flex flex-col items-center w-full border-t-4 border-amber-700 bg-gradient-to-b from-amber-700/10 to-transparent">
+                <div className="w-11 h-11 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full bg-amber-800 flex items-center justify-center text-base sm:text-lg md:text-xl font-bold mb-2 sm:mb-3">{podiumUsers[2].avatar}</div>
+                <p className="font-semibold text-content text-xs sm:text-sm mb-0.5 sm:mb-1 truncate max-w-full text-center">{podiumUsers[2].username}</p>
+                <p className="text-base sm:text-lg md:text-xl font-bold text-amber-700">{podiumUsers[2].points} <span className="text-[10px] sm:text-xs">PTS</span></p>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Leaderboard Table */}
+          <div className="glass-panel overflow-hidden">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-card border-b border-line text-xs uppercase tracking-wider text-content-muted">
+                  <th className="p-3 sm:p-4 font-semibold w-12">#</th>
+                  <th className="p-3 sm:p-4 font-semibold">Usuario</th>
+                  <th className="p-3 sm:p-4 font-semibold text-center hidden sm:table-cell">Exactos</th>
+                  <th className="p-3 sm:p-4 font-semibold text-right">Puntos</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {filteredUsers.map((user, idx) => {
+                  const rank = idx + 1;
+                  const isCurrentUser = user.id === currentUserId;
+
+                  return (
+                    <tr 
+                      key={user.id} 
+                      className={`hover:bg-card/50 transition-colors ${
+                        isCurrentUser ? "bg-brand/5 border-l-4 border-brand" : ""
+                      }`}
+                    >
+                      <td className="p-3 sm:p-4">
+                        <span className="font-bold text-content-muted">{rank}</span>
+                      </td>
+                      <td className="p-3 sm:p-4">
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                            isCurrentUser ? "bg-brand/20 text-brand" : "bg-line text-content-muted"
+                          }`}>
+                            {user.username.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <span className={`font-semibold text-sm sm:text-base truncate block ${isCurrentUser ? "text-brand" : "text-content"}`}>
+                              {user.username} {isCurrentUser && "(Tú)"}
+                            </span>
+                            {/* Exactos visibles solo en mobile debajo del nombre */}
+                            <span className="text-xs text-content-muted sm:hidden">
+                              {user.exactScores} exactos
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-3 sm:p-4 text-center text-content-muted font-medium hidden sm:table-cell">
+                        {user.exactScores}
+                      </td>
+                      <td className="p-3 sm:p-4 text-right font-bold text-brand whitespace-nowrap">
+                        {user.points.toLocaleString()}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+    </div>
+  );
+}
