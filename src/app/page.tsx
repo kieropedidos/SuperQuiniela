@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Users, Swords, X, Trophy } from "lucide-react";
+import { Users, Swords, X, Trophy, EyeOff } from "lucide-react";
 import {
   ALL_GROUP_MATCHES,
   ALL_KNOCKOUT_MATCHES,
@@ -47,6 +47,12 @@ export default function PronosticosPage() {
   const [compareB, setCompareB] = useState<string>("");
   const [officialMatchesMap, setOfficialMatchesMap] = useState<Record<string, { home_goals: number; away_goals: number }>>({});
 
+  // Control de visibilidad global
+  const [quinielasVisible, setQuinielasVisible] = useState<boolean>(true);
+  const [currentUsername, setCurrentUsername] = useState<string>("");
+  const [hasQuiniela, setHasQuiniela] = useState<boolean>(false);
+  const [quinielaStatus, setQuinielaStatus] = useState<string | null>(null);
+
   const openUserModal = (user: UserQuinielaData) => {
     setSelectedUser(user);
     setModalTab("groups");
@@ -56,6 +62,36 @@ export default function PronosticosPage() {
   useEffect(() => {
     async function loadQuinielas() {
       try {
+        // Cargar sesión del usuario actual
+        const { data: { session } } = await supabase.auth.getSession();
+        const username = session?.user?.user_metadata?.username || "";
+        setCurrentUsername(username);
+
+        // Verificar si este usuario ya tiene una quiniela registrada (pendiente o aprobada)
+        if (session?.user) {
+          const { data: userQ } = await supabase
+            .from("user_quinielas")
+            .select("id, status")
+            .eq("user_id", session.user.id)
+            .maybeSingle();
+          setHasQuiniela(!!userQ && userQ.status !== "draft");
+          setQuinielaStatus(userQ?.status || null);
+        }
+
+        // Cargar visibilidad global del torneo
+        try {
+          const { data: settingData, error: settingError } = await supabase
+            .from("system_settings")
+            .select("value")
+            .eq("key", "quinielas_visible")
+            .single();
+          if (!settingError && settingData && settingData.value) {
+            setQuinielasVisible(!!settingData.value.enabled);
+          }
+        } catch (err) {
+          console.warn("No se pudo obtener el ajuste de visibilidad. Por defecto: visible.");
+        }
+
         const { data, error } = await supabase
           .from("user_quinielas")
           .select(`
@@ -158,6 +194,37 @@ export default function PronosticosPage() {
     const groupResults = getGroupResults(selectedUser.predictions);
     return resolveKnockoutBracket(groupResults, selectedUser.knockoutPredictions);
   }, [selectedUser]);
+
+  // Si está oculto y no es el administrador, mostramos pantalla premium de espera
+  if (!isLoading && !quinielasVisible && currentUsername.toLowerCase() !== "vicdaddy") {
+    return (
+      <div className="max-w-xl mx-auto py-24 px-4 text-center animate-in zoom-in-95 duration-500">
+        <div className="w-24 h-24 bg-yellow-500/10 rounded-full flex items-center justify-center mx-auto mb-8 border border-yellow-500/30 animate-pulse">
+          <EyeOff size={44} className="text-yellow-500" />
+        </div>
+        <h1 className="text-3xl font-extrabold text-content mb-4 tracking-tight">Predicciones Ocultas</h1>
+        <p className="text-content-muted mb-4 text-lg">
+          Las quinielas de todos los participantes están <strong className="text-yellow-500">ocultas temporalmente</strong> por decisión del administrador.
+        </p>
+        <p className="text-content-muted mb-8 text-base leading-relaxed">
+          Se harán públicas de forma automática al comenzar el primer partido del torneo para garantizar la transparencia y evitar copias.{" "}
+          {quinielaStatus === "draft" ? (
+            <span className="font-semibold text-yellow-500">¡Tienes un borrador guardado! Puedes continuar completándolo.</span>
+          ) : hasQuiniela ? (
+            <span className="font-semibold text-brand">¡Tu quiniela ya está registrada de forma segura!</span>
+          ) : (
+            <span className="font-semibold text-yellow-500">¡Aún no has inscrito tu quiniela!</span>
+          )}
+        </p>
+        <a
+          href="/inscribir"
+          className="inline-block px-8 py-3.5 bg-brand hover:bg-brand-hover text-white font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(0,176,107,0.3)]"
+        >
+          {quinielaStatus === "draft" ? "Completar Borrador" : hasQuiniela ? "Ver Mi Inscripción" : "Inscribir Quiniela"}
+        </a>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto pb-12 animate-in fade-in duration-500">

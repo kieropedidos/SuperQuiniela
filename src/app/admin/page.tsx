@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { ShieldCheck, AlertTriangle, Save, UserCheck, UserX, Clock, CheckCircle2 } from "lucide-react";
+import { ShieldCheck, AlertTriangle, Save, UserCheck, UserX, Clock, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { ALL_GROUP_MATCHES, TEAMS, MatchPrediction, ALL_KNOCKOUT_MATCHES, getGroupResults, resolveKnockoutBracket } from "@/lib/worldCupData";
 import Flag from "@/components/ui/Flag";
 
@@ -28,6 +28,10 @@ export default function AdminPage() {
   const [savedMatches, setSavedMatches] = useState<Record<string, boolean>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [adminTab, setAdminTab] = useState<"inscripciones" | "resultados">("inscripciones");
+
+  // Visibilidad global de las quinielas
+  const [quinielasVisible, setQuinielasVisible] = useState<boolean>(false);
+  const [savingVisibility, setSavingVisibility] = useState<boolean>(false);
 
   // Gestión de inscripciones
   interface PendingQuiniela {
@@ -136,6 +140,17 @@ export default function AdminPage() {
       const username = session?.user?.user_metadata?.username || "";
       if (username.toLowerCase() === "vicdaddy") {
         setIsAdmin(true);
+        
+        // Cargar visibilidad global de las quinielas
+        const { data: settingData } = await supabase
+          .from("system_settings")
+          .select("value")
+          .eq("key", "quinielas_visible")
+          .single();
+        if (settingData && settingData.value) {
+          setQuinielasVisible(!!settingData.value.enabled);
+        }
+
         // Cargar resultados oficiales existentes
         const { data } = await supabase.from("official_matches").select("*");
         if (data) {
@@ -157,6 +172,25 @@ export default function AdminPage() {
     }
     init();
   }, []);
+
+  const handleToggleVisibility = async () => {
+    setSavingVisibility(true);
+    const nextVal = !quinielasVisible;
+    const { error } = await supabase
+      .from("system_settings")
+      .upsert({
+        key: "quinielas_visible",
+        value: { enabled: nextVal },
+        updated_at: new Date().toISOString()
+      });
+
+    if (error) {
+      alert("Error al cambiar visibilidad: " + error.message);
+    } else {
+      setQuinielasVisible(nextVal);
+    }
+    setSavingVisibility(false);
+  };
 
   const handleUpdate = (matchId: string, side: "home" | "away", value: string) => {
     const numVal = value === "" ? null : parseInt(value, 10);
@@ -213,6 +247,41 @@ export default function AdminPage() {
         <p className="text-content-muted">
           Plataforma exclusiva para <span className="font-bold text-content">VicDaddy</span>.
         </p>
+      </div>
+
+      {/* Control de Visibilidad del Torneo */}
+      <div className="glass-panel p-5 mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border border-line">
+        <div className="flex items-center gap-3">
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${quinielasVisible ? 'bg-brand/10 text-brand border border-brand/30' : 'bg-red-500/10 text-red-500 border border-red-500/30'}`}>
+            {quinielasVisible ? <Eye size={22} /> : <EyeOff size={22} />}
+          </div>
+          <div>
+            <h3 className="font-bold text-content text-base">Visibilidad Pública del Torneo</h3>
+            <p className="text-xs text-content-muted mt-0.5">
+              {quinielasVisible 
+                ? "Las quinielas aprobadas y el ranking son visibles para todos los usuarios." 
+                : "Las quinielas y el ranking están ocultos para usuarios normales hasta que decidas activarlos."}
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={handleToggleVisibility}
+          disabled={savingVisibility}
+          className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 shrink-0 ${
+            quinielasVisible 
+              ? 'bg-red-500/15 hover:bg-red-500/25 text-red-500 border border-red-500/30' 
+              : 'bg-brand text-white shadow-[0_0_15px_rgba(0,176,107,0.3)] hover:bg-brand-hover'
+          }`}
+        >
+          {savingVisibility ? (
+            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+          ) : quinielasVisible ? (
+            <>Ocultar Quinielas</>
+          ) : (
+            <>Hacer Públicas</>
+          )}
+        </button>
       </div>
 
       {/* Admin Tabs */}

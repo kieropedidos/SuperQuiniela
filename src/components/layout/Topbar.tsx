@@ -11,6 +11,11 @@ export default function Topbar() {
   const [username, setUsername] = useState("");
   const pathname = usePathname();
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUsername(session?.user?.user_metadata?.username || "");
@@ -60,11 +65,21 @@ export default function Topbar() {
                     {username ? username.charAt(0).toUpperCase() : <User size={14} />}
                   </span>
                 </div>
-                <span className="font-bold text-content text-sm truncate">{username || "Menú"}</span>
+                <div className="flex flex-col min-w-0">
+                  <span className="font-bold text-content text-sm truncate">{username || "Menú"}</span>
+                  {username && (
+                    <button
+                      onClick={handleLogout}
+                      className="text-[10px] text-red-400 hover:text-red-500 font-semibold text-left mt-0.5 active:scale-95 transition-transform"
+                    >
+                      Cerrar Sesión
+                    </button>
+                  )}
+                </div>
               </div>
               <button 
                 onClick={() => setIsOpen(false)} 
-                className="p-2 text-content-muted hover:text-white hover:bg-card rounded-md transition-colors"
+                className="p-2 text-content-muted hover:text-white hover:bg-card rounded-md transition-colors shrink-0"
               >
                 <X size={20} />
               </button>

@@ -18,9 +18,21 @@ import {
 import GroupStandings from "@/components/predictions/GroupStandings";
 import KnockoutBracket from "@/components/predictions/KnockoutBracket";
 import Flag from "@/components/ui/Flag";
-import { Trophy, ChevronRight, ChevronLeft, Check, Lock, Dices, Clock } from "lucide-react";
+import { Trophy, ChevronRight, ChevronLeft, Check, Lock, Dices, Clock, Save } from "lucide-react";
 
 type Step = "groups" | "knockout" | "confirm";
+
+// Función de utilidad para enfocar automáticamente el siguiente input en móvil
+const focusNextInput = (el: HTMLInputElement) => {
+  setTimeout(() => {
+    const inputs = Array.from(document.querySelectorAll("input[type='number']:not(:disabled)")) as HTMLInputElement[];
+    const idx = inputs.indexOf(el);
+    if (idx !== -1 && idx < inputs.length - 1) {
+      inputs[idx + 1].focus();
+      inputs[idx + 1].select();
+    }
+  }, 50);
+};
 
 export default function InscribirPage() {
   const router = useRouter();
@@ -29,6 +41,7 @@ export default function InscribirPage() {
   const [predictions, setPredictions] = useState<Record<string, MatchPrediction>>({});
   const [knockoutPredictions, setKnockoutPredictions] = useState<Record<string, MatchPrediction>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [registrationStatus, setRegistrationStatus] = useState<"loading" | "none" | "pending" | "approved">("loading");
 
   // Verificar si ya tiene quiniela inscrita y su estado de aprobación
@@ -41,12 +54,22 @@ export default function InscribirPage() {
       }
       const { data } = await supabase
         .from("user_quinielas")
-        .select("id, status")
+        .select("id, status, predictions, knockout_predictions")
         .eq("user_id", session.user.id)
         .single();
         
       if (data) {
-        setRegistrationStatus(data.status === "approved" ? "approved" : "pending");
+        if (data.status === "draft") {
+          if (data.predictions) {
+            setPredictions(data.predictions);
+          }
+          if (data.knockout_predictions) {
+            setKnockoutPredictions(data.knockout_predictions);
+          }
+          setRegistrationStatus("none");
+        } else {
+          setRegistrationStatus(data.status === "approved" ? "approved" : "pending");
+        }
       } else {
         setRegistrationStatus("none");
       }
@@ -166,6 +189,44 @@ export default function InscribirPage() {
       (p) => p.homeGoals !== null && p.awayGoals !== null && p.homeGoals === p.awayGoals
     );
   }, [knockoutPredictions]);
+
+  // Guardar Borrador
+  const handleSaveDraft = async () => {
+    try {
+      setIsSavingDraft(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.user) {
+        alert("❌ Error: Debes iniciar sesión para guardar tu borrador.");
+        setIsSavingDraft(false);
+        return;
+      }
+
+      const { error } = await supabase
+        .from("user_quinielas")
+        .upsert({
+          user_id: session.user.id,
+          predictions: predictions,
+          knockout_predictions: knockoutPredictions,
+          status: "draft",
+          updated_at: new Date().toISOString()
+        }, { onConflict: "user_id" });
+
+      if (error) {
+        console.error("Supabase Error:", error);
+        alert(`❌ Error al guardar borrador: ${error.message}`);
+        setIsSavingDraft(false);
+        return;
+      }
+
+      alert("💾 ¡Borrador guardado exitosamente! Puedes salir y regresar después para completarla.");
+    } catch (err) {
+      console.error(err);
+      alert("❌ Ocurrió un error inesperado al procesar la solicitud.");
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
 
   // Lógica de Guardado en Base de Datos (Supabase)
   const handleSaveQuiniela = async () => {
@@ -322,34 +383,38 @@ export default function InscribirPage() {
       {step === "groups" && (
         <>
           {/* Group Tabs */}
-          <div className="flex overflow-x-auto pb-3 gap-2 mb-6 hide-scrollbar">
-            {GROUP_NAMES.map((g, idx) => {
-              const completed = groupCompletionCount(g);
-              const isFull = completed === 6;
-              return (
-                <button
-                  key={g}
-                  onClick={() => setCurrentGroup(idx)}
-                  className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${
-                    idx === currentGroup
-                      ? "bg-brand text-white shadow-[0_0_12px_rgba(0,176,107,0.3)]"
-                      : isFull
-                      ? "bg-brand/10 text-brand border border-brand/30"
-                      : "bg-panel text-content-muted hover:text-content border border-line"
-                  }`}
-                >
-                  Grupo {g}
-                  {completed > 0 && (
-                    <span className={`ml-1.5 text-[10px] ${idx === currentGroup ? "text-white/70" : "text-content-muted"}`}>
-                      {completed}/6
-                    </span>
-                  )}
-                  {isFull && idx !== currentGroup && (
-                    <Check size={12} className="inline ml-1 text-brand" />
-                  )}
-                </button>
-              );
-            })}
+          <div className="relative">
+            <div className="flex overflow-x-auto pb-3 gap-2 mb-6 hide-scrollbar">
+              {GROUP_NAMES.map((g, idx) => {
+                const completed = groupCompletionCount(g);
+                const isFull = completed === 6;
+                return (
+                  <button
+                    key={g}
+                    onClick={() => setCurrentGroup(idx)}
+                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${
+                      idx === currentGroup
+                        ? "bg-brand text-white shadow-[0_0_12px_rgba(0,176,107,0.3)]"
+                        : isFull
+                        ? "bg-brand/10 text-brand border border-brand/30"
+                        : "bg-panel text-content-muted hover:text-content border border-line"
+                    }`}
+                  >
+                    Grupo {g}
+                    {completed > 0 && (
+                      <span className={`ml-1.5 text-[10px] ${idx === currentGroup ? "text-white/70" : "text-content-muted"}`}>
+                        {completed}/6
+                      </span>
+                    )}
+                    {isFull && idx !== currentGroup && (
+                      <Check size={12} className="inline ml-1 text-brand" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Gradiente de desplazamiento horizontal para móvil */}
+            <div className="absolute right-0 top-0 bottom-3 w-12 pointer-events-none bg-gradient-to-l from-base to-transparent md:hidden"></div>
           </div>
 
           {/* Group Content: Matches + Standings */}
@@ -392,10 +457,13 @@ export default function InscribirPage() {
                                 type="number"
                                 min="0"
                                 max="20"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 value={pred?.homeGoals ?? ""}
-                                onChange={(e) =>
-                                  updatePrediction(match.id, "home", e.target.value)
-                                }
+                                onChange={(e) => {
+                                  updatePrediction(match.id, "home", e.target.value);
+                                  if (e.target.value !== "") focusNextInput(e.target);
+                                }}
                                 placeholder="-"
                                 className="w-11 h-12 bg-base border-2 border-line rounded-lg text-center text-lg font-bold text-content focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all appearance-none"
                               />
@@ -404,10 +472,13 @@ export default function InscribirPage() {
                                 type="number"
                                 min="0"
                                 max="20"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 value={pred?.awayGoals ?? ""}
-                                onChange={(e) =>
-                                  updatePrediction(match.id, "away", e.target.value)
-                                }
+                                onChange={(e) => {
+                                  updatePrediction(match.id, "away", e.target.value);
+                                  if (e.target.value !== "") focusNextInput(e.target);
+                                }}
                                 placeholder="-"
                                 className="w-11 h-12 bg-base border-2 border-line rounded-lg text-center text-lg font-bold text-content focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all appearance-none"
                               />
@@ -439,29 +510,44 @@ export default function InscribirPage() {
           </div>
 
           {/* Navigation */}
-          <div className="flex items-center justify-between mt-8 pt-6 border-t border-line">
+          <div className="flex items-center justify-between mt-8 pt-6 border-t border-line gap-2">
             <button
               onClick={() => setCurrentGroup(Math.max(0, currentGroup - 1))}
               disabled={currentGroup === 0}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-content-muted hover:text-content disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium text-content-muted hover:text-content disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
-              <ChevronLeft size={18} /> Grupo Anterior
+              <ChevronLeft size={18} />
+              <span className="hidden sm:inline">Grupo Anterior</span>
+              <span className="sm:hidden">Anterior</span>
+            </button>
+
+            <button
+              onClick={handleSaveDraft}
+              disabled={isSavingDraft}
+              className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-panel hover:bg-card border border-line rounded-lg text-sm font-semibold text-content transition-all shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-wait"
+            >
+              <Save size={16} className="text-brand" />
+              <span>Guardar Borrador</span>
             </button>
 
             {currentGroup < 11 ? (
               <button
                 onClick={() => setCurrentGroup(currentGroup + 1)}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-brand/10 text-brand hover:bg-brand hover:text-white border border-brand/50 transition-colors"
+                className="flex items-center gap-1 sm:gap-2 px-3 sm:px-5 py-2.5 rounded-lg text-sm font-semibold bg-brand/10 text-brand hover:bg-brand hover:text-white border border-brand/50 transition-colors"
               >
-                Grupo Siguiente <ChevronRight size={18} />
+                <span className="hidden sm:inline">Grupo Siguiente</span>
+                <span className="sm:hidden">Siguiente</span>
+                <ChevronRight size={18} />
               </button>
             ) : (
               <button
                 onClick={() => allGroupsFilled && setStep("knockout")}
                 disabled={!allGroupsFilled}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-brand text-white shadow-[0_0_15px_rgba(0,176,107,0.3)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center gap-1 sm:gap-2 px-3 sm:px-5 py-2.5 rounded-lg text-sm font-semibold bg-brand text-white shadow-[0_0_15px_rgba(0,176,107,0.3)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                Ir a Eliminatorias <ChevronRight size={18} />
+                <span className="hidden sm:inline">Ir a Eliminatorias</span>
+                <span className="sm:hidden">Siguiente</span>
+                <ChevronRight size={18} />
               </button>
             )}
           </div>
@@ -479,18 +565,29 @@ export default function InscribirPage() {
           />
 
           {/* Navigation */}
-          <div className="flex items-center justify-between pt-6 border-t border-line">
+          <div className="flex items-center justify-between pt-6 border-t border-line gap-2">
             <button
               onClick={() => setStep("groups")}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-content-muted hover:text-content transition-colors"
+              className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium text-content-muted hover:text-content transition-colors"
             >
-              <ChevronLeft size={18} /> Volver a Grupos
+              <ChevronLeft size={18} />
+              <span className="hidden sm:inline">Volver a Grupos</span>
+              <span className="sm:hidden">Grupos</span>
+            </button>
+
+            <button
+              onClick={handleSaveDraft}
+              disabled={isSavingDraft}
+              className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-panel hover:bg-card border border-line rounded-lg text-sm font-semibold text-content transition-all shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-wait"
+            >
+              <Save size={16} className="text-brand" />
+              <span>Guardar Borrador</span>
             </button>
 
             <button
               disabled={hasKnockoutTies || isSaving}
               onClick={handleSaveQuiniela}
-              className={`flex items-center gap-2 px-6 py-3 rounded-lg text-base font-bold transition-colors ${
+              className={`flex items-center gap-1 sm:gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-bold transition-colors ${
                 hasKnockoutTies
                   ? "bg-red-500/20 text-red-400 border border-red-500/30 cursor-not-allowed"
                   : isSaving
@@ -499,7 +596,17 @@ export default function InscribirPage() {
               }`}
             >
               <Lock size={18} className={isSaving ? "animate-pulse" : ""} />
-              {isSaving ? "Guardando..." : hasKnockoutTies ? "Corrige los empates" : "Inscribir Mi Quiniela"}
+              {isSaving ? "Guardando..." : hasKnockoutTies ? (
+                <>
+                  <span className="hidden sm:inline">Corrige los empates</span>
+                  <span className="sm:hidden">Empates</span>
+                </>
+              ) : (
+                <>
+                  <span className="hidden sm:inline">Inscribir Mi Quiniela</span>
+                  <span className="sm:hidden">Inscribir</span>
+                </>
+              )}
             </button>
           </div>
         </div>

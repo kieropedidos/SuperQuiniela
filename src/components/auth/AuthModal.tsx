@@ -103,8 +103,8 @@ export default function AuthModal() {
             <Trophy size={32} />
           </div>
           <h2 className="text-2xl font-bold text-content tracking-tight">Únete a la Quiniela</h2>
-          <p className="text-content-muted mt-2 text-sm">
-            Ingresa tu apodo para comenzar a predecir los resultados. Este nombre será público en el ranking global.
+          <p className="text-content-muted mt-2 text-sm leading-relaxed">
+            Ingresa tu apodo para jugar. Si es tu primera vez te registrarás; si ya tienes cuenta, iniciarás sesión para cargar y guardar tus datos.
           </p>
           
           <div className="w-full mt-6 space-y-4">

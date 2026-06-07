@@ -1,7 +1,39 @@
 "use client";
 
+import { useState } from "react";
 import { TEAMS, KnockoutMatch, ROUND_NAMES, MatchPrediction } from "@/lib/worldCupData";
 import Flag from "@/components/ui/Flag";
+
+// Función de utilidad para enfocar automáticamente el siguiente input en móvil
+const focusNextInput = (el: HTMLInputElement) => {
+  setTimeout(() => {
+    const inputs = Array.from(document.querySelectorAll("input[type='number']:not(:disabled)")) as HTMLInputElement[];
+    const idx = inputs.indexOf(el);
+    if (idx !== -1 && idx < inputs.length - 1) {
+      inputs[idx + 1].focus();
+      inputs[idx + 1].select();
+    }
+  }, 50);
+};
+
+const R32_MATCH_DESCRIPTIONS: Record<string, string> = {
+  M73: "2do Lugar Grupo A vs 2do Lugar Grupo B",
+  M74: "1er Lugar Grupo E vs 3er Lugar Grupo A/B/C/D/F",
+  M75: "1er Lugar Grupo F vs 2do Lugar Grupo C",
+  M76: "1er Lugar Grupo C vs 2do Lugar Grupo F",
+  M77: "1er Lugar Grupo I vs 3er Lugar Grupo C/D/F/G/H",
+  M78: "2do Lugar Grupo E vs 2do Lugar Grupo I",
+  M79: "1er Lugar Grupo A vs 3er Lugar Grupo C/E/F/H/I",
+  M80: "1er Lugar Grupo L vs 3er Lugar Grupo E/H/I/J/K",
+  M81: "1er Lugar Grupo D vs 3er Lugar Grupo B/E/F/I/J",
+  M82: "1er Lugar Grupo G vs 3er Lugar Grupo A/E/H/I/J",
+  M83: "2do Lugar Grupo K vs 2do Lugar Grupo L",
+  M84: "1er Lugar Grupo H vs 2do Lugar Grupo J",
+  M85: "1er Lugar Grupo B vs 3er Lugar Grupo E/F/G/I/J",
+  M86: "1er Lugar Grupo J vs 2do Lugar Grupo H",
+  M87: "1er Lugar Grupo K vs 3er Lugar Grupo D/E/I/J/L",
+  M88: "2do Lugar Grupo D vs 2do Lugar Grupo G",
+};
 
 interface BracketMatchCardProps {
   match: KnockoutMatch;
@@ -34,15 +66,22 @@ function BracketMatchCard({ match, homeCode, awayCode, prediction, readOnly, onU
         : "border-line hover:border-brand/30"
     }`}>
       {/* Header */}
-      <div className={`px-3 py-1.5 flex items-center justify-between border-b ${
+      <div className={`px-3 py-1.5 flex flex-col gap-0.5 border-b ${
         isTie ? "bg-red-500/10 border-red-500/30" : "bg-panel/50 border-line/50"
       }`}>
-        <span className={`text-[10px] font-medium ${isTie ? "text-red-400" : "text-content-muted"}`}>{match.id}</span>
-        <span className={`text-[10px] font-semibold ${
-          isTie ? "text-red-500" : hasBothTeams ? "text-brand" : "text-content-muted"
-        }`}>
-          {isTie ? "Requiere Desempate" : hasBothTeams ? "Pendiente" : "TBD"}
-        </span>
+        <div className="flex items-center justify-between w-full">
+          <span className={`text-[10px] font-bold ${isTie ? "text-red-400" : "text-brand"}`}>{match.id}</span>
+          <span className={`text-[10px] font-semibold ${
+            isTie ? "text-red-500" : hasBothTeams ? "text-brand" : "text-content-muted"
+          }`}>
+            {isTie ? "Requiere Desempate" : hasBothTeams ? "Pendiente" : "TBD"}
+          </span>
+        </div>
+        {match.round === "R32" && R32_MATCH_DESCRIPTIONS[match.id] && (
+          <span className="text-[9px] text-content-muted/80 leading-tight">
+            {R32_MATCH_DESCRIPTIONS[match.id]}
+          </span>
+        )}
       </div>
 
       {/* Home Team Row */}
@@ -68,9 +107,14 @@ function BracketMatchCard({ match, homeCode, awayCode, prediction, readOnly, onU
           type="number"
           min="0"
           max="20"
+          inputMode="numeric"
+          pattern="[0-9]*"
           disabled={!hasBothTeams || readOnly}
           value={prediction?.homeGoals ?? ""}
-          onChange={(e) => onUpdate?.(match.id, "home", e.target.value)}
+          onChange={(e) => {
+            onUpdate?.(match.id, "home", e.target.value);
+            if (e.target.value !== "") focusNextInput(e.target);
+          }}
           placeholder="–"
           className={`w-9 h-8 rounded text-center text-sm font-bold outline-none transition-all appearance-none ${
             readOnly
@@ -110,9 +154,14 @@ function BracketMatchCard({ match, homeCode, awayCode, prediction, readOnly, onU
           type="number"
           min="0"
           max="20"
+          inputMode="numeric"
+          pattern="[0-9]*"
           disabled={!hasBothTeams || readOnly}
           value={prediction?.awayGoals ?? ""}
-          onChange={(e) => onUpdate?.(match.id, "away", e.target.value)}
+          onChange={(e) => {
+            onUpdate?.(match.id, "away", e.target.value);
+            if (e.target.value !== "") focusNextInput(e.target);
+          }}
           placeholder="–"
           className={`w-9 h-8 rounded text-center text-sm font-bold outline-none transition-all appearance-none ${
             readOnly
@@ -147,6 +196,8 @@ export default function KnockoutBracket({
   readOnly = false,
   onUpdate,
 }: KnockoutBracketProps) {
+  const [activeMobileRound, setActiveMobileRound] = useState<string>("R32");
+
   const byRound: Record<string, KnockoutMatch[]> = {};
   for (const m of matches) {
     if (!byRound[m.round]) byRound[m.round] = [];
@@ -252,7 +303,11 @@ export default function KnockoutBracket({
   return (
     <>
       {/* Vista Desktop (Árbol Horizontal) */}
-      <div className="hidden lg:block space-y-12">
+      <div className="hidden lg:block space-y-8">
+        <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-xl p-3 text-center text-xs text-yellow-500/90 font-medium">
+          💡 Los mejores terceros de la Ronda de 32 están definidos de acuerdo a los resultados que colocaste en la Fase de Grupos.
+        </div>
+
         <div className="flex gap-12 pl-0 overflow-x-auto hide-scrollbar">
           {roundOrder.map((round) => (
             <div key={round} className="w-52 shrink-0 text-center">
@@ -314,52 +369,87 @@ export default function KnockoutBracket({
         )}
       </div>
 
-      {/* Vista Mobile (Lista Vertical Apilada) */}
-      <div className="lg:hidden flex flex-col space-y-8 mt-2">
-        {roundOrder.map((round) => {
-          const roundMatches = byRound[round] || [];
-          if (roundMatches.length === 0) return null;
-          
-          return (
-            <div key={round} className="space-y-4">
-              <h3 className="font-bold text-brand text-lg border-b border-line pb-2 uppercase tracking-wide">
-                {ROUND_NAMES[round]}
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {roundMatches.map((match) => {
-                  const resolved = resolvedBracket[match.id] || { home: "", away: "" };
-                  return (
-                    <BracketMatchCard
-                      key={match.id}
-                      match={match}
-                      homeCode={resolved.home}
-                      awayCode={resolved.away}
-                      prediction={predictions[match.id]}
-                      readOnly={readOnly}
-                      onUpdate={onUpdate}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-        
-        {thirdPlaceMatch && (
-          <div className="space-y-4 mt-6">
-            <h3 className="font-bold text-content-muted text-lg border-b border-line pb-2 uppercase tracking-wide">
-              {ROUND_NAMES["3RD"]}
-            </h3>
-            <BracketMatchCard
-              match={thirdPlaceMatch}
-              homeCode={resolvedBracket[thirdPlaceMatch.id]?.home || ""}
-              awayCode={resolvedBracket[thirdPlaceMatch.id]?.away || ""}
-              prediction={predictions[thirdPlaceMatch.id]}
-              readOnly={readOnly}
-              onUpdate={onUpdate}
-            />
+      {/* Vista Mobile (Pestañas de Selección de Ronda + Vista Condicional) */}
+      <div className="lg:hidden flex flex-col mt-2">
+        {/* Barra de Rondas (Scrollable en móviles pequeños) */}
+        <div className="relative mb-6">
+          <div className="flex overflow-x-auto pb-3 gap-2 hide-scrollbar">
+            {roundOrder.map((round) => {
+              const isActive = activeMobileRound === round;
+              const hasMatches = (byRound[round] || []).length > 0;
+              if (!hasMatches) return null;
+
+              return (
+                <button
+                  key={round}
+                  type="button"
+                  onClick={() => setActiveMobileRound(round)}
+                  className={`px-4 py-2.5 rounded-lg text-xs font-bold whitespace-nowrap border transition-all ${
+                    isActive
+                      ? "bg-brand text-white border-brand shadow-[0_0_12px_rgba(0,176,107,0.3)]"
+                      : "bg-panel text-content-muted border-line hover:text-content"
+                  }`}
+                >
+                  {ROUND_NAMES[round]}
+                </button>
+              );
+            })}
           </div>
-        )}
+          {/* Gradiente de desplazamiento horizontal para pestañas en móvil */}
+          <div className="absolute right-0 top-0 bottom-3 w-8 pointer-events-none bg-gradient-to-l from-base to-transparent"></div>
+        </div>
+
+        {/* Partidos de la Ronda Activa */}
+        <div className="space-y-4 animate-in fade-in duration-300">
+          {activeMobileRound === "R32" && (
+            <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-xl p-3.5 text-center text-xs text-yellow-500/90 font-medium">
+              💡 Los mejores terceros están definidos de acuerdo a los resultados que colocaste en la Fase de Grupos.
+            </div>
+          )}
+
+          {(() => {
+            const roundMatches = byRound[activeMobileRound] || [];
+            return (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {roundMatches.map((match) => {
+                    const resolved = resolvedBracket[match.id] || { home: "", away: "" };
+                    return (
+                      <BracketMatchCard
+                        key={match.id}
+                        match={match}
+                        homeCode={resolved.home}
+                        awayCode={resolved.away}
+                        prediction={predictions[match.id]}
+                        readOnly={readOnly}
+                        onUpdate={onUpdate}
+                      />
+                    );
+                  })}
+                </div>
+
+                {/* Mostrar partido de tercer puesto si estamos en la pestaña de la FINAL */}
+                {activeMobileRound === "FINAL" && thirdPlaceMatch && (
+                  <div className="space-y-4 mt-8 pt-6 border-t border-line/30">
+                    <h3 className="font-bold text-content-muted text-sm uppercase tracking-wider text-center">
+                      {ROUND_NAMES["3RD"]}
+                    </h3>
+                    <div className="flex justify-center">
+                      <BracketMatchCard
+                        match={thirdPlaceMatch}
+                        homeCode={resolvedBracket[thirdPlaceMatch.id]?.home || ""}
+                        awayCode={resolvedBracket[thirdPlaceMatch.id]?.away || ""}
+                        prediction={predictions[thirdPlaceMatch.id]}
+                        readOnly={readOnly}
+                        onUpdate={onUpdate}
+                      />
+                    </div>
+                  </div>
+                )}
+              </>
+            );
+          })()}
+        </div>
       </div>
     </>
   );
