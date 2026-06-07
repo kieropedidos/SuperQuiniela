@@ -13,7 +13,7 @@ import {
   getGroupMatches,
   calculateGroupStandings,
 } from "@/lib/worldCupData";
-import { calculateMatchPoints, getDetailedMatchScoring } from "@/scoringEngine";
+import { calculateMatchPoints, getDetailedMatchScoring, calculateTournamentBonuses } from "@/scoringEngine";
 import KnockoutBracket from "@/components/predictions/KnockoutBracket";
 import GroupStandings from "@/components/predictions/GroupStandings";
 import Flag from "@/components/ui/Flag";
@@ -159,6 +159,14 @@ export default function PronosticosPage() {
                 );
              }
           });
+
+          // Calcular puntos extra de bonificaciones del torneo
+          const bonuses = calculateTournamentBonuses(
+             row.predictions || {},
+             row.knockout_predictions || {},
+             officialMatches
+          );
+          calculatedPoints += bonuses.total;
  
           return {
             id: row.user_id,

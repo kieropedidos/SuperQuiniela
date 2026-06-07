@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Search, Trophy, Medal, EyeOff } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { calculateMatchPoints } from "@/scoringEngine";
+import { calculateMatchPoints, calculateTournamentBonuses } from "@/scoringEngine";
 
 interface UserRankData {
   id: string;
@@ -103,6 +103,14 @@ export default function LeaderboardPage() {
               }
             }
           });
+
+          // Calcular puntos extra de bonificaciones del torneo
+          const bonuses = calculateTournamentBonuses(
+            row.predictions || {},
+            row.knockout_predictions || {},
+            officialMatches
+          );
+          points += bonuses.total;
 
           return {
             id: row.user_id,

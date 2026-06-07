@@ -15,6 +15,7 @@ import {
   HelpCircle,
   ShieldCheck,
 } from "lucide-react";
+import { calculateMatchPoints, calculateTournamentBonuses } from "@/scoringEngine";
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -24,13 +25,55 @@ export default function Sidebar() {
 
   useEffect(() => {
     async function fetchPoints(userId: string) {
-      const { data } = await supabase
-        .from("profiles")
-        .select("total_points")
-        .eq("id", userId)
-        .single();
-      if (data) {
-        setPoints(data.total_points);
+      try {
+        // 1. Obtener la quiniela del usuario (si está aprobada o pendiente)
+        const { data: userQ } = await supabase
+          .from("user_quinielas")
+          .select("predictions, knockout_predictions, status")
+          .eq("user_id", userId)
+          .single();
+          
+        if (!userQ || userQ.status === "draft") {
+          setPoints(0);
+          return;
+        }
+        
+        // 2. Obtener los partidos oficiales reales
+        const { data: officialMatches } = await supabase
+          .from("official_matches")
+          .select("*");
+          
+        if (!officialMatches) {
+          setPoints(0);
+          return;
+        }
+        
+        // 3. Calcular puntos de partidos
+        let total = 0;
+        officialMatches.forEach((om) => {
+          const pred = userQ.predictions?.[om.match_id] || userQ.knockout_predictions?.[om.match_id];
+          if (pred && pred.homeGoals !== null && pred.awayGoals !== null) {
+            total += calculateMatchPoints(
+              pred.homeGoals,
+              pred.awayGoals,
+              om.home_goals,
+              om.away_goals
+            );
+          }
+        });
+        
+        // 4. Calcular puntos de bonos
+        const bonuses = calculateTournamentBonuses(
+          userQ.predictions || {},
+          userQ.knockout_predictions || {},
+          officialMatches
+        );
+        total += bonuses.total;
+        
+        setPoints(total);
+      } catch (err) {
+        console.error("Error al calcular puntos en Sidebar:", err);
+        setPoints(0);
       }
     }
 

@@ -94,21 +94,13 @@ export default function RulesPage() {
                   <h4 className="font-bold text-brand text-sm">Fase de Grupos</h4>
                   <span className="bg-brand/20 text-brand text-xs font-bold px-2 py-0.5 rounded">+3 pts</span>
                 </div>
-                <p className="text-xs text-content-muted">Por posición exacta (1º o 2º) en cada grupo.</p>
-              </div>
-
-              <div className="relative pl-4 border-l-2 border-brand">
-                <div className="flex items-center justify-between mb-1">
-                  <h4 className="font-bold text-brand text-sm">Clasificados a Playoffs</h4>
-                  <span className="bg-brand/20 text-brand text-xs font-bold px-2 py-0.5 rounded">+3 pts</span>
-                </div>
-                <p className="text-xs text-content-muted">Por cada equipo que avance (Octavos, Cuartos, Semis).</p>
+                <p className="text-xs text-content-muted">Por posición exacta (1º al 3º) en cada grupo.</p>
               </div>
 
               <div className="relative pl-4 border-l-2 border-brand">
                 <div className="flex items-center justify-between mb-1">
                   <h4 className="font-bold text-brand text-sm">Podio Final</h4>
-                  <span className="bg-brand/20 text-brand text-xs font-bold px-2 py-0.5 rounded">+3 pts</span>
+                  <span className="bg-brand/20 text-brand text-xs font-bold px-2 py-0.5 rounded">+5 pts</span>
                 </div>
                 <p className="text-xs text-content-muted">Por posición exacta (1º al 4º).</p>
               </div>

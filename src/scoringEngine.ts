@@ -3,6 +3,14 @@
  * Lógica matemática y pura para calcular puntos por partido en base a la matriz del torneo.
  */
 
+import {
+  GROUP_NAMES,
+  getGroupMatches,
+  getGroupResults,
+  resolveKnockoutBracket,
+  MatchPrediction
+} from "./lib/worldCupData";
+
 /**
  * Interfaz que representa el resultado detallado de la puntuación
  */
@@ -98,5 +106,129 @@ export function getDetailedMatchScoring(
     isTieGuessed,
     isConsolation,
     isIncorrect
+  };
+}
+
+export interface BonusesResult {
+  groupPoints: number; // 3 pts per correct position 1-3 in completed groups
+  podioPoints: number; // 5 pts per correct position in Champion, RunnerUp, 3rd, 4th
+  total: number;
+}
+
+/**
+ * Calcula dinámicamente los puntos extras por bonos del torneo:
+ * 1. Fase de Grupos: +3 pts por cada posición exacta (del 1º al 3º) en grupos completados.
+ * 2. Podio Final: +5 pts por cada posición exacta en el podio (Campeón, Subcampeón, 3er Lugar y 4to Lugar).
+ */
+export function calculateTournamentBonuses(
+  userPreds: Record<string, MatchPrediction>,
+  userKO: Record<string, MatchPrediction>,
+  officialMatches: any[]
+): BonusesResult {
+  const officialMatchesMap: Record<string, { home_goals: number; away_goals: number }> = {};
+  const officialPreds: Record<string, MatchPrediction> = {};
+  
+  officialMatches.forEach((om) => {
+    officialMatchesMap[om.match_id] = { home_goals: om.home_goals, away_goals: om.away_goals };
+    officialPreds[om.match_id] = {
+      matchId: om.match_id,
+      homeGoals: om.home_goals,
+      awayGoals: om.away_goals,
+    };
+  });
+
+  // 1. FASE DE GRUPOS (Puntos por posición exacta 1 al 3 de los grupos completados)
+  let groupPoints = 0;
+  const userGroupResults = getGroupResults(userPreds);
+  const officialGroupResults = getGroupResults(officialPreds);
+
+  for (const group of GROUP_NAMES) {
+    const groupMatchIds = getGroupMatches(group).map((m) => m.id);
+    const isGroupCompleted = groupMatchIds.every((id) => officialMatchesMap[id] !== undefined);
+    
+    if (isGroupCompleted) {
+      const u1 = userGroupResults[group]?.first;
+      const u2 = userGroupResults[group]?.second;
+      const u3 = userGroupResults[group]?.third?.teamCode;
+      
+      const o1 = officialGroupResults[group]?.first;
+      const o2 = officialGroupResults[group]?.second;
+      const o3 = officialGroupResults[group]?.third?.teamCode;
+      
+      if (u1 && o1 && u1 === o1) groupPoints += 3;
+      if (u2 && o2 && u2 === o2) groupPoints += 3;
+      if (u3 && o3 && u3 === o3) groupPoints += 3;
+    }
+  }
+
+  // 2. PODIO FINAL (5 pts por cada posición exacta de Campeón, Subcampeón, 3er y 4to lugar)
+  let podioPoints = 0;
+
+  // Resolver brackets
+  const userBracket = resolveKnockoutBracket(userGroupResults, userKO);
+  const officialBracket = resolveKnockoutBracket(officialGroupResults, officialPreds);
+
+  // Resolver ganadores y perdedores de los partidos de finales en un bracket
+  const getWinnersAndLosers = (bracket: Record<string, { home: string; away: string }>, preds: Record<string, MatchPrediction>) => {
+    const m103 = bracket["M103"]; // 3RD
+    const p103 = preds["M103"];
+    let third = "";
+    let fourth = "";
+    if (m103 && p103 && p103.homeGoals !== null && p103.awayGoals !== null && m103.home && m103.away) {
+      if (p103.homeGoals > p103.awayGoals) {
+        third = m103.home;
+        fourth = m103.away;
+      } else {
+        third = m103.away;
+        fourth = m103.home;
+      }
+    }
+
+    const m104 = bracket["M104"]; // FINAL
+    const p104 = preds["M104"];
+    let champion = "";
+    let runnerUp = "";
+    if (m104 && p104 && p104.homeGoals !== null && p104.awayGoals !== null && m104.home && m104.away) {
+      if (p104.homeGoals > p104.awayGoals) {
+        champion = m104.home;
+        runnerUp = m104.away;
+      } else {
+        champion = m104.away;
+        runnerUp = m104.home;
+      }
+    }
+
+    return { champion, runnerUp, third, fourth };
+  };
+
+  const userPodio = getWinnersAndLosers(userBracket, userKO);
+  const officialPodio = getWinnersAndLosers(officialBracket, officialPreds);
+
+  // Solo comparar si el partido correspondiente oficial ha sido jugado (existe en officialMatchesMap)
+  const isFinalMatchCompleted = officialMatchesMap["M104"] !== undefined;
+  const is3rdMatchCompleted = officialMatchesMap["M103"] !== undefined;
+
+  if (isFinalMatchCompleted) {
+    if (userPodio.champion && officialPodio.champion && userPodio.champion === officialPodio.champion) {
+      podioPoints += 5;
+    }
+    if (userPodio.runnerUp && officialPodio.runnerUp && userPodio.runnerUp === officialPodio.runnerUp) {
+      podioPoints += 5;
+    }
+  }
+
+  if (is3rdMatchCompleted) {
+    if (userPodio.third && officialPodio.third && userPodio.third === officialPodio.third) {
+      podioPoints += 5;
+    }
+    if (userPodio.fourth && officialPodio.fourth && userPodio.fourth === officialPodio.fourth) {
+      podioPoints += 5;
+    }
+  }
+
+  return {
+    groupPoints,
+    podioPoints,
+    total: groupPoints + podioPoints,
   };
 }
