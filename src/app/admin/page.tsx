@@ -417,6 +417,7 @@ export default function AdminPage() {
               <div className="space-y-3">
                 {approvedQuinielas.map((q) => {
                   const champion = q.championCode !== "TBD" ? TEAMS[q.championCode] : null;
+                  const isProcessing = processingIds[q.id];
 
                   return (
                     <div key={q.id} className="bg-card border border-line rounded-xl p-4 flex items-center justify-between gap-4">
@@ -439,9 +440,20 @@ export default function AdminPage() {
                           </div>
                         </div>
                       </div>
-                      <span className="text-xs font-bold bg-brand/10 text-brand px-3 py-1 rounded-full shrink-0">
-                        ✓ Aprobada
-                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs font-bold bg-brand/10 text-brand px-3 py-1 rounded-full hidden sm:inline">
+                          ✓ Aprobada
+                        </span>
+                        <button
+                          onClick={() => handleReject(q.id)}
+                          disabled={isProcessing}
+                          className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 transition-colors disabled:opacity-50"
+                          title="Eliminar Quiniela"
+                        >
+                          <UserX size={14} />
+                          <span>Eliminar</span>
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
