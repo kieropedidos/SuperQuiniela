@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import { Search, Trophy, Medal, EyeOff } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { calculateMatchPoints, calculateTournamentBonuses } from "@/scoringEngine";
@@ -208,6 +209,41 @@ export default function LeaderboardPage() {
           />
         </div>
       </div>
+
+      {/* Onboarding Prompts */}
+      {currentUsername && quinielaStatus === null && (
+        <div className="mb-10 bg-brand/10 border border-brand/30 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-[0_0_20px_rgba(0,176,107,0.05)]">
+          <div>
+            <h3 className="font-bold text-content text-lg">¡Registra tu quiniela!</h3>
+            <p className="text-sm text-content-muted mt-1">
+              Aún no has inscrito tus pronósticos para el Mundial. ¡No te quedes fuera!
+            </p>
+          </div>
+          <Link
+            href="/inscribir"
+            className="btn-primary py-2.5 px-5 text-sm font-bold shadow-[0_0_12px_rgba(0,176,107,0.2)] whitespace-nowrap text-center shrink-0"
+          >
+            Registra tu quiniela
+          </Link>
+        </div>
+      )}
+
+      {currentUsername && quinielaStatus === "draft" && (
+        <div className="mb-10 bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-[0_0_20px_rgba(234,179,8,0.05)]">
+          <div>
+            <h3 className="font-bold text-content text-lg">¡Completa tu quiniela!</h3>
+            <p className="text-sm text-content-muted mt-1">
+              Tienes un borrador guardado a medias. Completa tu quiniela para participar.
+            </p>
+          </div>
+          <Link
+            href="/inscribir"
+            className="inline-block bg-yellow-500 hover:bg-yellow-600 text-base-dark py-2.5 px-5 rounded-lg text-sm font-bold whitespace-nowrap text-center shrink-0 transition-colors shadow-[0_0_12px_rgba(234,179,8,0.2)]"
+          >
+            Completa tu quiniela
+          </Link>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="text-center py-24">

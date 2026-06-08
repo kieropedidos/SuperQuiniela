@@ -22,18 +22,27 @@ export default function Sidebar() {
   const [user, setUser] = useState<User | null>(null);
   const [username, setUsername] = useState<string>("Cargando...");
   const [points, setPoints] = useState<number>(0);
+  const [quinielaStatus, setQuinielaStatus] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchPoints(userId: string) {
       try {
-        // 1. Obtener la quiniela del usuario (si está aprobada o pendiente)
+        // 1. Obtener la quiniela del usuario
         const { data: userQ } = await supabase
           .from("user_quinielas")
           .select("predictions, knockout_predictions, status")
           .eq("user_id", userId)
-          .single();
+          .maybeSingle();
           
-        if (!userQ || userQ.status === "draft") {
+        if (!userQ) {
+          setPoints(0);
+          setQuinielaStatus(null);
+          return;
+        }
+        
+        setQuinielaStatus(userQ.status);
+        
+        if (userQ.status === "draft") {
           setPoints(0);
           return;
         }
@@ -74,6 +83,7 @@ export default function Sidebar() {
       } catch (err) {
         console.error("Error al calcular puntos en Sidebar:", err);
         setPoints(0);
+        setQuinielaStatus(null);
       }
     }
 
@@ -85,6 +95,7 @@ export default function Sidebar() {
         fetchPoints(session.user.id);
       } else if (!session) {
         setUsername("Invitado");
+        setQuinielaStatus(null);
       }
     });
 
@@ -97,6 +108,7 @@ export default function Sidebar() {
       } else if (!session) {
         setUsername("Invitado");
         setPoints(0);
+        setQuinielaStatus(null);
       }
     });
 
@@ -176,8 +188,14 @@ export default function Sidebar() {
 
       {/* Footer Navigation */}
       <div className="p-4 mt-auto">
-        <Link href="/inscribir" className="w-full mb-6 btn-primary text-center block">
-          Inscribir Quiniela
+        <Link href="/inscribir" className="w-full mb-6 btn-primary text-center block text-sm">
+          {user ? (
+            quinielaStatus === "draft" ? "Completa tu quiniela" :
+            quinielaStatus === null ? "Registra tu quiniela" :
+            "Ver Mi Quiniela"
+          ) : (
+            "Inscribir Quiniela"
+          )}
         </Link>
 
         <div className="space-y-1">

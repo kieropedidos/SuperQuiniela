@@ -551,6 +551,18 @@ export default function InscribirPage() {
               </button>
             )}
           </div>
+
+          {allGroupsFilled && (
+            <div className="mt-6 text-center animate-in fade-in duration-300">
+              <button
+                onClick={() => setStep("knockout")}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-brand/15 border border-brand/40 hover:bg-brand hover:text-white rounded-xl text-brand font-bold text-sm transition-all shadow-[0_0_15px_rgba(0,176,107,0.15)] active:scale-95 cursor-pointer"
+              >
+                <span>Continuar a fase de eliminatorias</span>
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
         </>
       )}
 
