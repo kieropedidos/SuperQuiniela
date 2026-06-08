@@ -126,8 +126,17 @@ export default function Sidebar() {
     <aside className="w-64 bg-panel border-r border-line hidden md:flex flex-col h-full overflow-y-auto">
       {/* Branding */}
       <div className="p-6">
-        <h1 className="text-2xl font-bold text-brand tracking-tight">Quiniela Pro</h1>
-        <p className="text-xs text-content-muted mt-1 uppercase tracking-wider">Edición Mundial</p>
+        <Link href="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
+          <img 
+            src="/logo-mundial.png" 
+            alt="Mundial 2026 Logo" 
+            className="h-10 w-auto object-contain shrink-0" 
+          />
+          <div className="flex flex-col">
+            <h1 className="text-xl font-bold text-brand tracking-tight">Quiniela 2026</h1>
+            <p className="text-[10px] text-content-muted mt-0.5 uppercase tracking-wider">Edición Mundial</p>
+          </div>
+        </Link>
       </div>
 
       {/* Profile Section */}

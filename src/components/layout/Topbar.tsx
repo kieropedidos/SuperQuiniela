@@ -35,10 +35,15 @@ export default function Topbar() {
 
   return (
     <>
-      <header className="md:hidden flex items-center justify-between px-4 py-3 bg-panel border-b border-line sticky top-0 z-50">
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl font-bold text-brand tracking-tight">Quiniela Pro</h1>
-        </div>
+      <header className="md:hidden flex items-center justify-between px-4 py-2 bg-panel border-b border-line sticky top-0 z-50">
+        <Link href="/" className="flex items-center gap-2">
+          <img 
+            src="/logo-mundial.png" 
+            alt="Mundial 2026 Logo" 
+            className="h-8 w-auto object-contain shrink-0" 
+          />
+          <span className="text-lg font-bold text-brand tracking-tight">Quiniela 2026</span>
+        </Link>
         <button 
           onClick={() => setIsOpen(true)}
           className="p-2 -mr-2 text-content-muted hover:text-content hover:bg-card rounded-md transition-colors"

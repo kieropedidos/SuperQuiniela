@@ -13,7 +13,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Quiniela Pro - World Cup 2026",
+  title: "Quiniela 2026 - World Cup 2026",
   description: "Plataforma de predicciones y quinielas para la Copa del Mundo.",
 };
 
