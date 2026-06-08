@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { TEAMS, KnockoutMatch, ROUND_NAMES, MatchPrediction } from "@/lib/worldCupData";
 import Flag from "@/components/ui/Flag";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // Función de utilidad para enfocar automáticamente el siguiente input en móvil
 const focusNextInput = (el: HTMLInputElement) => {
@@ -197,6 +198,17 @@ export default function KnockoutBracket({
   onUpdate,
 }: KnockoutBracketProps) {
   const [activeMobileRound, setActiveMobileRound] = useState<string>("R32");
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollBracket = (direction: "left" | "right") => {
+    if (scrollContainerRef.current) {
+      const scrollAmount = 350;
+      scrollContainerRef.current.scrollBy({
+        left: direction === "left" ? -scrollAmount : scrollAmount,
+        behavior: "smooth",
+      });
+    }
+  };
 
   const byRound: Record<string, KnockoutMatch[]> = {};
   for (const m of matches) {
@@ -303,56 +315,90 @@ export default function KnockoutBracket({
   return (
     <>
       {/* Vista Desktop (Árbol Horizontal) */}
-      <div className="hidden lg:block space-y-8">
-        <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-xl p-3 text-center text-xs text-yellow-500/90 font-medium">
-          💡 Los mejores terceros de la Ronda de 32 están definidos de acuerdo a los resultados que colocaste en la Fase de Grupos.
+      <div className="hidden lg:block space-y-6 relative group/bracket">
+        
+        {/* Banner informativo con indicador visual */}
+        <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-xl p-3 flex items-center justify-between gap-4 text-xs font-medium">
+          <span className="text-yellow-500/95 flex items-center gap-2">
+            💡 Los mejores terceros de la Ronda de 32 están definidos de acuerdo a los resultados que colocaste en la Fase de Grupos.
+          </span>
+          <div className="flex items-center gap-2 bg-brand/10 border border-brand/20 px-3.5 py-1.5 rounded-lg text-brand font-bold shrink-0 animate-pulse">
+            <span>Usa las flechas laterales o desliza para ver la final &rarr;</span>
+          </div>
         </div>
 
-        <div className="overflow-x-auto hide-scrollbar pb-6">
-          <div className="flex flex-col gap-6 min-w-max">
-            {/* Headers */}
-            <div className="flex gap-12 pl-0">
-              {roundOrder.map((round) => (
-                <div key={round} className="w-[240px] shrink-0 text-center">
-                  <h3 className={`text-xs font-bold uppercase tracking-widest ${
-                    round === "FINAL" ? "text-yellow-500" : "text-brand"
-                  }`}>
-                    {ROUND_NAMES[round]}
-                  </h3>
-                </div>
-              ))}
-            </div>
+        {/* Scroll Container Wrapper */}
+        <div className="relative border border-line rounded-2xl bg-panel/10 p-6 overflow-hidden">
+          {/* Botón Scroll Izquierdo */}
+          <button
+            type="button"
+            onClick={() => scrollBracket("left")}
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 bg-base/90 hover:bg-brand text-content hover:text-white border border-line hover:border-brand w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-lg hover:shadow-brand/20 cursor-pointer hover:scale-105 active:scale-95 group-hover/bracket:opacity-100 opacity-60"
+            title="Desplazar a la izquierda"
+          >
+            <ChevronLeft size={24} />
+          </button>
 
-            {/* Top Half */}
-            <div className="flex gap-12 items-stretch">
-              {roundOrder.map((round) => {
-                const roundMatches = topHalf[round] || [];
-                if (roundMatches.length === 0 && round !== "FINAL") return null;
-                return (
-                  <div key={round} className="w-[240px] shrink-0">
-                    {renderRoundColumn(round, roundMatches, gapClasses[round])}
+          {/* Botón Scroll Derecho */}
+          <button
+            type="button"
+            onClick={() => scrollBracket("right")}
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 bg-base/90 hover:bg-brand text-content hover:text-white border border-line hover:border-brand w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-lg hover:shadow-brand/20 cursor-pointer hover:scale-105 active:scale-95 group-hover/bracket:opacity-100 opacity-60"
+            title="Desplazar a la derecha"
+          >
+            <ChevronRight size={24} />
+          </button>
+
+          {/* Scroll Container */}
+          <div
+            ref={scrollContainerRef}
+            className="overflow-x-auto pb-4 custom-horizontal-scrollbar scroll-smooth"
+          >
+            <div className="flex flex-col gap-6 min-w-max">
+              {/* Headers */}
+              <div className="flex gap-12 pl-0">
+                {roundOrder.map((round) => (
+                  <div key={round} className="w-[240px] shrink-0 text-center">
+                    <h3 className={`text-xs font-bold uppercase tracking-widest ${
+                      round === "FINAL" ? "text-yellow-500" : "text-brand"
+                    }`}>
+                      {ROUND_NAMES[round]}
+                    </h3>
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
 
-            <div className="border-t border-line/30 mx-8"></div>
+              {/* Top Half */}
+              <div className="flex gap-12 items-stretch">
+                {roundOrder.map((round) => {
+                  const roundMatches = topHalf[round] || [];
+                  if (roundMatches.length === 0 && round !== "FINAL") return null;
+                  return (
+                    <div key={round} className="w-[240px] shrink-0">
+                      {renderRoundColumn(round, roundMatches, gapClasses[round])}
+                    </div>
+                  );
+                })}
+              </div>
 
-            {/* Bottom Half */}
-            <div className="flex gap-12 items-stretch">
-              {roundOrder.map((round) => {
-                const roundMatches = bottomHalf[round] || [];
-                if (roundMatches.length === 0 && round !== "FINAL") return null;
-                return (
-                  <div key={round} className="w-[240px] shrink-0">
-                    {roundMatches.length > 0 ? (
-                      renderRoundColumn(round, roundMatches, gapClasses[round])
-                    ) : (
-                      <div className="w-[240px] shrink-0"></div>
-                    )}
-                  </div>
-                );
-              })}
+              <div className="border-t border-line/30 mx-8"></div>
+
+              {/* Bottom Half */}
+              <div className="flex gap-12 items-stretch">
+                {roundOrder.map((round) => {
+                  const roundMatches = bottomHalf[round] || [];
+                  if (roundMatches.length === 0 && round !== "FINAL") return null;
+                  return (
+                    <div key={round} className="w-[240px] shrink-0">
+                      {roundMatches.length > 0 ? (
+                        renderRoundColumn(round, roundMatches, gapClasses[round])
+                      ) : (
+                        <div className="w-[240px] shrink-0"></div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
