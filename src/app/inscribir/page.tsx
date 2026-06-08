@@ -190,6 +190,20 @@ export default function InscribirPage() {
     );
   }, [knockoutPredictions]);
 
+  // Contar cuántos partidos de eliminatorias faltan por pronosticar
+  const remainingKnockoutCount = useMemo(() => {
+    let count = 0;
+    for (const m of ALL_KNOCKOUT_MATCHES) {
+      const p = knockoutPredictions[m.id];
+      if (!p || p.homeGoals === null || p.awayGoals === null) {
+        count++;
+      }
+    }
+    return count;
+  }, [knockoutPredictions]);
+
+  const allKnockoutFilled = remainingKnockoutCount === 0;
+
   // Guardar Borrador
   const handleSaveDraft = async () => {
     try {
@@ -230,7 +244,7 @@ export default function InscribirPage() {
 
   // Lógica de Guardado en Base de Datos (Supabase)
   const handleSaveQuiniela = async () => {
-    if (hasKnockoutTies) return;
+    if (!allKnockoutFilled || hasKnockoutTies) return;
     
     try {
       setIsSaving(true);
@@ -597,10 +611,12 @@ export default function InscribirPage() {
             </button>
 
             <button
-              disabled={hasKnockoutTies || isSaving}
+              disabled={!allKnockoutFilled || hasKnockoutTies || isSaving}
               onClick={handleSaveQuiniela}
               className={`flex items-center gap-1 sm:gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-bold transition-colors ${
-                hasKnockoutTies
+                !allKnockoutFilled
+                  ? "bg-line/30 text-content-muted border border-line/50 cursor-not-allowed"
+                  : hasKnockoutTies
                   ? "bg-red-500/20 text-red-400 border border-red-500/30 cursor-not-allowed"
                   : isSaving
                   ? "bg-brand/50 text-white cursor-wait"
@@ -608,7 +624,12 @@ export default function InscribirPage() {
               }`}
             >
               <Lock size={18} className={isSaving ? "animate-pulse" : ""} />
-              {isSaving ? "Guardando..." : hasKnockoutTies ? (
+              {isSaving ? "Guardando..." : !allKnockoutFilled ? (
+                <>
+                  <span className="hidden sm:inline">Faltan {remainingKnockoutCount} pronósticos</span>
+                  <span className="sm:hidden">{remainingKnockoutCount} restantes</span>
+                </>
+              ) : hasKnockoutTies ? (
                 <>
                   <span className="hidden sm:inline">Corrige los empates</span>
                   <span className="sm:hidden">Empates</span>
