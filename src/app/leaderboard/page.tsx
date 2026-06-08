@@ -231,9 +231,9 @@ export default function LeaderboardPage() {
                 <Medal size={14} className="text-white" />
               </div>
               <div className="glass-panel p-3 sm:p-5 md:p-6 flex flex-col items-center w-full border-t-4 border-gray-400 bg-gradient-to-b from-gray-400/10 to-transparent">
-                <div className="w-11 h-11 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full bg-gray-500 flex items-center justify-center text-base sm:text-lg md:text-xl font-bold mb-2 sm:mb-3">{podiumUsers[0].avatar}</div>
-                <p className="font-semibold text-content text-xs sm:text-sm mb-0.5 sm:mb-1 truncate max-w-full text-center">{podiumUsers[0].username}</p>
-                <p className="text-base sm:text-lg md:text-xl font-bold text-gray-400">{podiumUsers[0].points} <span className="text-[10px] sm:text-xs">PTS</span></p>
+                <div className="w-11 h-11 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full bg-gray-500 flex items-center justify-center text-base sm:text-lg md:text-xl font-bold text-white mb-2 sm:mb-3">{podiumUsers[0].avatar}</div>
+                <p style={{ color: '#ffffff' }} className="font-semibold text-xs sm:text-sm mb-0.5 sm:mb-1 truncate max-w-full text-center">{podiumUsers[0].username}</p>
+                <p style={{ color: '#d1d5db' }} className="text-base sm:text-lg md:text-xl font-bold">{podiumUsers[0].points} <span className="text-[10px] sm:text-xs">PTS</span></p>
               </div>
             </div>
 
@@ -245,20 +245,20 @@ export default function LeaderboardPage() {
               </div>
               <div className="glass-panel p-4 sm:p-6 md:p-8 flex flex-col items-center w-full border-t-4 border-yellow-500 bg-gradient-to-b from-yellow-500/10 to-transparent shadow-[0_0_30px_rgba(234,179,8,0.1)]">
                 <div className="w-14 h-14 sm:w-18 sm:h-18 md:w-20 md:h-20 rounded-full border-2 border-yellow-500 bg-yellow-600 flex items-center justify-center text-xl sm:text-2xl md:text-3xl font-bold mb-2 sm:mb-4 shadow-[0_0_20px_rgba(234,179,8,0.3)]">{podiumUsers[1].avatar}</div>
-                <p className="font-bold text-yellow-500 text-sm sm:text-base mb-0.5 sm:mb-1 truncate max-w-full text-center">{podiumUsers[1].username}</p>
-                <p className="text-xl sm:text-2xl md:text-3xl font-black text-content">{podiumUsers[1].points} <span className="text-xs sm:text-sm text-content-muted font-normal">PTS</span></p>
+                <p style={{ color: '#ffffff' }} className="font-bold text-sm sm:text-base mb-0.5 sm:mb-1 truncate max-w-full text-center">{podiumUsers[1].username}</p>
+                <p style={{ color: '#ffffff' }} className="text-xl sm:text-2xl md:text-3xl font-black">{podiumUsers[1].points} <span style={{ color: '#a1a1aa' }} className="text-xs sm:text-sm font-normal">PTS</span></p>
               </div>
             </div>
 
             {/* Third Place */}
             <div className="flex flex-col items-center relative z-10 translate-y-8 sm:translate-y-10 md:translate-y-12 flex-1 max-w-[120px] sm:max-w-[140px] md:max-w-[160px]">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-amber-700 flex items-center justify-center absolute -top-3 sm:-top-4 z-20 shadow-md">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-amber-600 flex items-center justify-center absolute -top-3 sm:-top-4 z-20 shadow-md">
                 <Medal size={14} className="text-white" />
               </div>
-              <div className="glass-panel p-3 sm:p-5 md:p-6 flex flex-col items-center w-full border-t-4 border-amber-700 bg-gradient-to-b from-amber-700/10 to-transparent">
-                <div className="w-11 h-11 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full bg-amber-800 flex items-center justify-center text-base sm:text-lg md:text-xl font-bold mb-2 sm:mb-3">{podiumUsers[2].avatar}</div>
-                <p className="font-semibold text-content text-xs sm:text-sm mb-0.5 sm:mb-1 truncate max-w-full text-center">{podiumUsers[2].username}</p>
-                <p className="text-base sm:text-lg md:text-xl font-bold text-amber-700">{podiumUsers[2].points} <span className="text-[10px] sm:text-xs">PTS</span></p>
+              <div className="glass-panel p-3 sm:p-5 md:p-6 flex flex-col items-center w-full border-t-4 border-amber-600 bg-gradient-to-b from-amber-600/10 to-transparent">
+                <div className="w-11 h-11 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full bg-amber-700 flex items-center justify-center text-base sm:text-lg md:text-xl font-bold text-white mb-2 sm:mb-3">{podiumUsers[2].avatar}</div>
+                <p style={{ color: '#ffffff' }} className="font-semibold text-xs sm:text-sm mb-0.5 sm:mb-1 truncate max-w-full text-center">{podiumUsers[2].username}</p>
+                <p style={{ color: '#f59e0b' }} className="text-base sm:text-lg md:text-xl font-bold">{podiumUsers[2].points} <span className="text-[10px] sm:text-xs">PTS</span></p>
               </div>
             </div>
 
@@ -298,7 +298,7 @@ export default function LeaderboardPage() {
                             {user.username.charAt(0).toUpperCase()}
                           </div>
                           <div className="min-w-0">
-                            <span className={`font-semibold text-sm sm:text-base truncate block ${isCurrentUser ? "text-brand" : "text-content"}`}>
+                            <span style={{ color: isCurrentUser ? '#00b06b' : '#ffffff' }} className="font-semibold text-sm sm:text-base truncate block">
                               {user.username} {isCurrentUser && "(Tú)"}
                             </span>
                             {/* Exactos visibles solo en mobile debajo del nombre */}

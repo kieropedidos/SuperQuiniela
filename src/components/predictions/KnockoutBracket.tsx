@@ -450,6 +450,38 @@ export default function KnockoutBracket({
             );
           })()}
         </div>
+
+        {/* Barra de Rondas Inferior (Duplicada para navegación móvil) */}
+        <div className="relative mt-8">
+          <div className="flex overflow-x-auto pb-3 gap-2 hide-scrollbar">
+            {roundOrder.map((round) => {
+              const isActive = activeMobileRound === round;
+              const hasMatches = (byRound[round] || []).length > 0;
+              if (!hasMatches) return null;
+
+              return (
+                <button
+                  key={`bottom-${round}`}
+                  type="button"
+                  onClick={() => {
+                    setActiveMobileRound(round);
+                    // Opcionalmente hacer scroll suave hacia arriba al cambiar de ronda
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className={`px-4 py-2.5 rounded-lg text-xs font-bold whitespace-nowrap border transition-all ${
+                    isActive
+                      ? "bg-brand text-white border-brand shadow-[0_0_12px_rgba(0,176,107,0.3)]"
+                      : "bg-panel text-content-muted border-line hover:text-content"
+                  }`}
+                >
+                  {ROUND_NAMES[round]}
+                </button>
+              );
+            })}
+          </div>
+          {/* Gradiente de desplazamiento horizontal para pestañas en móvil */}
+          <div className="absolute right-0 top-0 bottom-3 w-8 pointer-events-none bg-gradient-to-l from-base to-transparent"></div>
+        </div>
       </div>
     </>
   );
