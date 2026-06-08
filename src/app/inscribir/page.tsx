@@ -202,6 +202,20 @@ export default function InscribirPage() {
     return count;
   }, [knockoutPredictions]);
 
+  // Contar cuántos partidos de grupo faltan por pronosticar
+  const remainingGroupsCount = useMemo(() => {
+    let count = 0;
+    for (const m of ALL_GROUP_MATCHES) {
+      const p = predictions[m.id];
+      if (!p || p.homeGoals === null || p.awayGoals === null) {
+        count++;
+      }
+    }
+    return count;
+  }, [predictions]);
+
+  const totalRemainingCount = remainingGroupsCount + remainingKnockoutCount;
+
   const allKnockoutFilled = remainingKnockoutCount === 0;
 
   // Guardar Borrador
@@ -244,7 +258,7 @@ export default function InscribirPage() {
 
   // Lógica de Guardado en Base de Datos (Supabase)
   const handleSaveQuiniela = async () => {
-    if (!allKnockoutFilled || hasKnockoutTies) return;
+    if (!allGroupsFilled || !allKnockoutFilled || hasKnockoutTies) return;
     
     try {
       setIsSaving(true);
@@ -611,10 +625,10 @@ export default function InscribirPage() {
             </button>
 
             <button
-              disabled={!allKnockoutFilled || hasKnockoutTies || isSaving}
+              disabled={!allGroupsFilled || !allKnockoutFilled || hasKnockoutTies || isSaving}
               onClick={handleSaveQuiniela}
               className={`flex items-center gap-1 sm:gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-bold transition-colors ${
-                !allKnockoutFilled
+                !allGroupsFilled || !allKnockoutFilled
                   ? "bg-line/30 text-content-muted border border-line/50 cursor-not-allowed"
                   : hasKnockoutTies
                   ? "bg-red-500/20 text-red-400 border border-red-500/30 cursor-not-allowed"
@@ -624,10 +638,10 @@ export default function InscribirPage() {
               }`}
             >
               <Lock size={18} className={isSaving ? "animate-pulse" : ""} />
-              {isSaving ? "Guardando..." : !allKnockoutFilled ? (
+              {isSaving ? "Guardando..." : (!allGroupsFilled || !allKnockoutFilled) ? (
                 <>
-                  <span className="hidden sm:inline">Faltan {remainingKnockoutCount} pronósticos</span>
-                  <span className="sm:hidden">{remainingKnockoutCount} restantes</span>
+                  <span className="hidden sm:inline">Faltan {totalRemainingCount} pronósticos</span>
+                  <span className="sm:hidden">{totalRemainingCount} restantes</span>
                 </>
               ) : hasKnockoutTies ? (
                 <>
