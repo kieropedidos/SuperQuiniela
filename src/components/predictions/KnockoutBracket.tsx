@@ -308,45 +308,52 @@ export default function KnockoutBracket({
           💡 Los mejores terceros de la Ronda de 32 están definidos de acuerdo a los resultados que colocaste en la Fase de Grupos.
         </div>
 
-        <div className="flex gap-12 pl-0 overflow-x-auto hide-scrollbar">
-          {roundOrder.map((round) => (
-            <div key={round} className="w-52 shrink-0 text-center">
-              <h3 className={`text-xs font-bold uppercase tracking-widest ${
-                round === "FINAL" ? "text-yellow-500" : "text-brand"
-              }`}>
-                {ROUND_NAMES[round]}
-              </h3>
+        <div className="overflow-x-auto hide-scrollbar pb-6">
+          <div className="flex flex-col gap-6 min-w-max">
+            {/* Headers */}
+            <div className="flex gap-12 pl-0">
+              {roundOrder.map((round) => (
+                <div key={round} className="w-[240px] shrink-0 text-center">
+                  <h3 className={`text-xs font-bold uppercase tracking-widest ${
+                    round === "FINAL" ? "text-yellow-500" : "text-brand"
+                  }`}>
+                    {ROUND_NAMES[round]}
+                  </h3>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        <div className="overflow-x-auto hide-scrollbar pb-4">
-          <div className="flex gap-12 items-stretch min-w-max">
-            {roundOrder.map((round) => {
-              const roundMatches = topHalf[round] || [];
-              if (roundMatches.length === 0 && round !== "FINAL") return null;
-              return (
-                <div key={round}>
-                  {renderRoundColumn(round, roundMatches, gapClasses[round])}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+            {/* Top Half */}
+            <div className="flex gap-12 items-stretch">
+              {roundOrder.map((round) => {
+                const roundMatches = topHalf[round] || [];
+                if (roundMatches.length === 0 && round !== "FINAL") return null;
+                return (
+                  <div key={round} className="w-[240px] shrink-0">
+                    {renderRoundColumn(round, roundMatches, gapClasses[round])}
+                  </div>
+                );
+              })}
+            </div>
 
-        <div className="border-t border-line/30 mx-8"></div>
+            <div className="border-t border-line/30 mx-8"></div>
 
-        <div className="overflow-x-auto hide-scrollbar pb-4">
-          <div className="flex gap-12 items-stretch min-w-max">
-            {roundOrder.map((round) => {
-              const roundMatches = bottomHalf[round] || [];
-              if (roundMatches.length === 0) return null;
-              return (
-                <div key={round}>
-                  {renderRoundColumn(round, roundMatches, gapClasses[round])}
-                </div>
-              );
-            })}
+            {/* Bottom Half */}
+            <div className="flex gap-12 items-stretch">
+              {roundOrder.map((round) => {
+                const roundMatches = bottomHalf[round] || [];
+                if (roundMatches.length === 0 && round !== "FINAL") return null;
+                return (
+                  <div key={round} className="w-[240px] shrink-0">
+                    {roundMatches.length > 0 ? (
+                      renderRoundColumn(round, roundMatches, gapClasses[round])
+                    ) : (
+                      <div className="w-[240px] shrink-0"></div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 
