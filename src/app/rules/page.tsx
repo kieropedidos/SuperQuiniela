@@ -53,9 +53,14 @@ export default function RulesPage() {
                 +1
               </div>
               <h3 className="font-bold text-content mb-2">Consuelo</h3>
-              <p className="text-sm text-content-muted">Pronóstico incorrecto,<br/>pero estuviste cerca.</p>
+              <p className="text-sm text-content-muted">Predijiste empate y hubo ganador (o viceversa).</p>
             </div>
             
+          </div>
+
+          {/* Aclaración sobre 0 puntos */}
+          <div className="text-xs text-content-muted bg-panel border border-line rounded-xl p-4 mb-8 leading-relaxed">
+            <span className="font-bold text-yellow-500">⚠️ Nota Importante:</span> Si pronosticas la victoria de un equipo y resulta ganador el equipo contrario, obtendrás <strong className="text-content">0 puntos</strong>. El punto de consuelo (+1) se otorga únicamente si predijiste un empate y ganó un equipo, o si predijiste un ganador y el partido terminó empatado.
           </div>
 
           {/* Lockdown Policy Box */}
