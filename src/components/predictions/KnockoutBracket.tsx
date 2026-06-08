@@ -328,26 +328,34 @@ export default function KnockoutBracket({
         </div>
 
         {/* Scroll Container Wrapper */}
-        <div className="relative border border-line rounded-2xl bg-panel/10 p-6 overflow-hidden">
+        <div className="relative border border-line rounded-2xl bg-panel/10 p-6">
           {/* Botón Scroll Izquierdo */}
-          <button
-            type="button"
-            onClick={() => scrollBracket("left")}
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 bg-base/90 hover:bg-brand text-content hover:text-white border border-line hover:border-brand w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-lg hover:shadow-brand/20 cursor-pointer hover:scale-105 active:scale-95 group-hover/bracket:opacity-100 opacity-60"
-            title="Desplazar a la izquierda"
-          >
-            <ChevronLeft size={24} />
-          </button>
+          <div className="absolute inset-y-0 left-4 w-12 pointer-events-none z-20">
+            <div className="sticky top-[50vh] -translate-y-1/2 pointer-events-auto">
+              <button
+                type="button"
+                onClick={() => scrollBracket("left")}
+                className="bg-base/90 hover:bg-brand text-content hover:text-white border border-line hover:border-brand w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-lg hover:shadow-brand/20 cursor-pointer hover:scale-105 active:scale-95 group-hover/bracket:opacity-100 opacity-60"
+                title="Desplazar a la izquierda"
+              >
+                <ChevronLeft size={24} />
+              </button>
+            </div>
+          </div>
 
           {/* Botón Scroll Derecho */}
-          <button
-            type="button"
-            onClick={() => scrollBracket("right")}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 bg-base/90 hover:bg-brand text-content hover:text-white border border-line hover:border-brand w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-lg hover:shadow-brand/20 cursor-pointer hover:scale-105 active:scale-95 group-hover/bracket:opacity-100 opacity-60"
-            title="Desplazar a la derecha"
-          >
-            <ChevronRight size={24} />
-          </button>
+          <div className="absolute inset-y-0 right-4 w-12 pointer-events-none z-20">
+            <div className="sticky top-[50vh] -translate-y-1/2 pointer-events-auto">
+              <button
+                type="button"
+                onClick={() => scrollBracket("right")}
+                className="bg-base/90 hover:bg-brand text-content hover:text-white border border-line hover:border-brand w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-lg hover:shadow-brand/20 cursor-pointer hover:scale-105 active:scale-95 group-hover/bracket:opacity-100 opacity-60"
+                title="Desplazar a la derecha"
+              >
+                <ChevronRight size={24} />
+              </button>
+            </div>
+          </div>
 
           {/* Scroll Container */}
           <div
