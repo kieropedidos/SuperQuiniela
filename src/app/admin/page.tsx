@@ -1,10 +1,23 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
-import { ShieldCheck, AlertTriangle, Save, UserCheck, UserX, Clock, CheckCircle2, Eye, EyeOff } from "lucide-react";
-import { ALL_GROUP_MATCHES, TEAMS, MatchPrediction, ALL_KNOCKOUT_MATCHES, getGroupResults, resolveKnockoutBracket } from "@/lib/worldCupData";
+import { ShieldCheck, AlertTriangle, Save, UserCheck, UserX, Clock, CheckCircle2, Eye, EyeOff, X, Trophy } from "lucide-react";
+import { 
+  ALL_GROUP_MATCHES, 
+  TEAMS, 
+  MatchPrediction, 
+  ALL_KNOCKOUT_MATCHES, 
+  getGroupResults, 
+  resolveKnockoutBracket,
+  GROUP_NAMES,
+  getGroupMatches,
+  calculateGroupStandings
+} from "@/lib/worldCupData";
 import Flag from "@/components/ui/Flag";
+import KnockoutBracket from "@/components/predictions/KnockoutBracket";
+import GroupStandings from "@/components/predictions/GroupStandings";
+import { calculateMatchPoints, getDetailedMatchScoring, calculateTournamentBonuses } from "@/scoringEngine";
 
 const CHRONOLOGICAL_MATCHES = [...ALL_GROUP_MATCHES].sort((a, b) => {
   // 1. Primero por jornada (matchday)
@@ -42,11 +55,21 @@ export default function AdminPage() {
     championCode: string;
     runnerUpCode: string;
     created_at: string;
+    predictions: Record<string, MatchPrediction>;
+    knockout_predictions: Record<string, MatchPrediction>;
+    groupFilledCount: number;
+    knockoutFilledCount: number;
   }
 
   const [pendingQuinielas, setPendingQuinielas] = useState<PendingQuiniela[]>([]);
   const [approvedQuinielas, setApprovedQuinielas] = useState<PendingQuiniela[]>([]);
+  const [draftQuinielas, setDraftQuinielas] = useState<PendingQuiniela[]>([]);
   const [processingIds, setProcessingIds] = useState<Record<string, boolean>>({});
+
+  // Modal State para ver predicciones del usuario
+  const [selectedUser, setSelectedUser] = useState<PendingQuiniela | null>(null);
+  const [modalTab, setModalTab] = useState<"groups" | "knockout">("groups");
+  const [modalGroupIndex, setModalGroupIndex] = useState(0);
 
   async function loadQuinielas() {
     const { data, error } = await supabase
@@ -87,6 +110,17 @@ export default function AdminPage() {
         }
       } catch {}
 
+      const predsMap = row.predictions || {};
+      const koMap = row.knockout_predictions || {};
+      
+      const groupFilledCount = Object.keys(predsMap).filter(
+        k => predsMap[k] && predsMap[k].homeGoals !== null && predsMap[k].awayGoals !== null
+      ).length;
+      
+      const knockoutFilledCount = Object.keys(koMap).filter(
+        k => koMap[k] && koMap[k].homeGoals !== null && koMap[k].awayGoals !== null
+      ).length;
+
       return {
         id: row.id,
         user_id: row.user_id,
@@ -95,12 +129,24 @@ export default function AdminPage() {
         championCode,
         runnerUpCode,
         created_at: row.created_at,
+        predictions: predsMap,
+        knockout_predictions: koMap,
+        groupFilledCount,
+        knockoutFilledCount
       };
     });
 
     setPendingQuinielas(mapped.filter((q) => q.status === "pending"));
     setApprovedQuinielas(mapped.filter((q) => q.status === "approved"));
+    setDraftQuinielas(mapped.filter((q) => q.status === "draft"));
   }
+
+  // Calcular bracket del usuario seleccionado
+  const resolvedUserBracket = useMemo(() => {
+    if (!selectedUser) return null;
+    const groupResults = getGroupResults(selectedUser.predictions);
+    return resolveKnockoutBracket(groupResults, selectedUser.knockout_predictions);
+  }, [selectedUser]);
 
   const handleApprove = async (quinielaId: string) => {
     setProcessingIds((prev) => ({ ...prev, [quinielaId]: true }));
@@ -353,7 +399,20 @@ export default function AdminPage() {
                           </span>
                         </div>
                         <div className="min-w-0">
-                          <h3 className="font-bold text-content text-lg truncate">{q.username}</h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-content text-lg truncate">{q.username}</h3>
+                            <button
+                              onClick={() => {
+                                setSelectedUser(q);
+                                setModalTab("groups");
+                                setModalGroupIndex(0);
+                              }}
+                              className="p-1 hover:bg-panel rounded text-content-muted hover:text-brand transition-colors"
+                              title="Ver Predicciones"
+                            >
+                              <Eye size={16} />
+                            </button>
+                          </div>
                           <p className="text-xs text-content-muted">Registrada: {date}</p>
                           <div className="flex items-center gap-3 mt-1.5">
                             {champion && (
@@ -428,7 +487,20 @@ export default function AdminPage() {
                           </span>
                         </div>
                         <div className="min-w-0">
-                          <h3 className="font-semibold text-content truncate">{q.username}</h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-content truncate">{q.username}</h3>
+                            <button
+                              onClick={() => {
+                                setSelectedUser(q);
+                                setModalTab("groups");
+                                setModalGroupIndex(0);
+                              }}
+                              className="p-1 hover:bg-panel rounded text-content-muted hover:text-brand transition-colors"
+                              title="Ver Predicciones"
+                            >
+                              <Eye size={14} />
+                            </button>
+                          </div>
                           <div className="flex items-center gap-2 mt-0.5">
                             {champion && (
                               <span className="flex items-center gap-1 text-xs text-content-muted">
@@ -449,6 +521,73 @@ export default function AdminPage() {
                           disabled={isProcessing}
                           className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 transition-colors disabled:opacity-50"
                           title="Eliminar Quiniela"
+                        >
+                          <UserX size={14} />
+                          <span>Eliminar</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* BORRADORES / QUINIELAS INCOMPLETAS */}
+          <div className="glass-panel p-6">
+            <div className="flex items-center gap-3 border-b border-line pb-4 mb-6">
+              <Clock size={22} className="text-yellow-500/80" />
+              <h2 className="text-xl font-bold text-content">Borradores / Quinielas Incompletas</h2>
+              <span className="text-sm font-bold bg-yellow-500/10 text-yellow-500 px-3 py-1 rounded-full ml-auto">
+                {draftQuinielas.length} borradores
+              </span>
+            </div>
+
+            {draftQuinielas.length === 0 ? (
+              <p className="text-center text-content-muted py-8">No hay borradores ni quinielas incompletas.</p>
+            ) : (
+              <div className="space-y-3">
+                {draftQuinielas.map((q) => {
+                  const isProcessing = processingIds[q.id];
+
+                  return (
+                    <div key={q.id} className="bg-card border border-line/60 rounded-xl p-4 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-full bg-yellow-500/10 flex items-center justify-center border border-yellow-500/20 shrink-0">
+                          <span className="text-yellow-500 font-bold text-sm">
+                            {q.username.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-content truncate">{q.username}</h3>
+                            <button
+                              onClick={() => {
+                                setSelectedUser(q);
+                                setModalTab("groups");
+                                setModalGroupIndex(0);
+                              }}
+                              className="p-1 hover:bg-panel rounded text-content-muted hover:text-brand transition-colors"
+                              title="Ver Predicciones"
+                            >
+                              <Eye size={14} />
+                            </button>
+                          </div>
+                          <p className="text-xs text-content-muted mt-1">
+                            Grupos: <span className="font-bold text-content">{q.groupFilledCount}/72</span> | 
+                            Eliminatorias: <span className="font-bold text-content">{q.knockoutFilledCount}/32</span>
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs font-bold bg-yellow-500/10 text-yellow-500 px-3 py-1 rounded-full">
+                          Borrador
+                        </span>
+                        <button
+                          onClick={() => handleReject(q.id)}
+                          disabled={isProcessing}
+                          className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 transition-colors disabled:opacity-50"
+                          title="Eliminar Borrador"
                         >
                           <UserX size={14} />
                           <span>Eliminar</span>
@@ -562,6 +701,214 @@ export default function AdminPage() {
             </div>
           </div>
         </>
+      )}
+
+      {/* =========================================
+          MODAL: DETALLE DE QUINIELA DEL USUARIO (VISTA READ-ONLY PARA EL ADMIN)
+      ========================================= */}
+      {selectedUser && resolvedUserBracket && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+          <div className="absolute inset-0 bg-base/90 backdrop-blur-sm" onClick={() => setSelectedUser(null)}></div>
+          
+          <div className="relative w-full max-w-6xl max-h-[90vh] bg-card border border-line rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-line bg-panel/50">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-brand/20 flex items-center justify-center border border-brand/50">
+                  <span className="text-brand font-bold text-lg">
+                    {selectedUser.username.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-content">Quiniela de {selectedUser.username}</h2>
+                  <p className="text-sm text-brand font-medium">Torneo Mundial 2026 ({selectedUser.status === 'draft' ? 'Borrador' : 'Inscripción'})</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedUser(null)}
+                className="p-2 rounded-lg text-content-muted hover:text-white hover:bg-base transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Modal Tabs */}
+            <div className="flex items-center gap-4 px-6 border-b border-line bg-panel/30">
+              <button
+                onClick={() => setModalTab("groups")}
+                className={`py-3 text-sm font-bold border-b-2 transition-all ${
+                  modalTab === "groups"
+                    ? "border-brand text-brand"
+                    : "border-transparent text-content-muted hover:text-content"
+                }`}
+              >
+                Fase de Grupos
+              </button>
+              <button
+                onClick={() => setModalTab("knockout")}
+                className={`py-3 text-sm font-bold border-b-2 transition-all ${
+                  modalTab === "knockout"
+                    ? "border-brand text-brand"
+                    : "border-transparent text-content-muted hover:text-content"
+                }`}
+              >
+                Fase de Eliminatorias
+              </button>
+            </div>
+
+            {/* Group selector inside Modal (only for groups tab) */}
+            {modalTab === "groups" && (
+              <div className="flex overflow-x-auto px-6 py-3 border-b border-line/50 gap-2 bg-panel/10 hide-scrollbar shrink-0">
+                {GROUP_NAMES.map((g, idx) => (
+                  <button
+                    key={g}
+                    onClick={() => setModalGroupIndex(idx)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                      idx === modalGroupIndex
+                        ? "bg-brand text-white shadow-sm"
+                        : "bg-panel text-content-muted hover:text-content border border-line"
+                    }`}
+                  >
+                    Grupo {g}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar font-sans">
+              {modalTab === "groups" ? (
+                (() => {
+                  const groupKey = GROUP_NAMES[modalGroupIndex];
+                  const groupMatches = getGroupMatches(groupKey);
+                  const standings = calculateGroupStandings(groupKey, selectedUser.predictions);
+
+                  return (
+                    <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                      {/* Partidos Pronosticados */}
+                      <div className="lg:col-span-3 space-y-4">
+                        <h3 className="text-lg font-bold text-content mb-2">
+                          Partidos Grupo {groupKey}
+                        </h3>
+                        {[1, 2, 3].map((matchday) => (
+                          <div key={matchday} className="space-y-3">
+                            <p className="text-xs text-content-muted uppercase tracking-wider font-semibold mt-4 first:mt-0">
+                              Jornada {matchday}
+                            </p>
+                            <div className="space-y-3">
+                              {groupMatches
+                                .filter((m) => m.matchday === matchday)
+                                .map((match) => {
+                                  const home = TEAMS[match.homeTeam];
+                                  const away = TEAMS[match.awayTeam];
+                                  const pred = selectedUser.predictions[match.id];
+                                  const official = results[match.id];
+                                  const scoring = (pred && official && pred.homeGoals !== null && pred.awayGoals !== null)
+                                    ? getDetailedMatchScoring(pred.homeGoals, pred.awayGoals, official.homeGoals, official.awayGoals)
+                                    : null;
+                                  
+                                  const pointsColor = scoring
+                                    ? scoring.isExactScore ? "text-emerald-400 bg-emerald-500/20 border-emerald-500/40"
+                                    : scoring.isWinnerGuessed || scoring.isTieGuessed ? "text-green-400 bg-green-500/15 border-green-500/30"
+                                    : scoring.isConsolation ? "text-yellow-400 bg-yellow-500/15 border-yellow-500/30"
+                                    : "text-red-400 bg-red-500/15 border-red-500/30"
+                                    : null;
+                                  
+                                  const pointsLabel = scoring
+                                    ? scoring.isExactScore ? "Exacto"
+                                    : scoring.isWinnerGuessed ? "Ganador"
+                                    : scoring.isTieGuessed ? "Empate"
+                                    : scoring.isConsolation ? "Cercano"
+                                    : "Errado"
+                                    : null;
+
+                                  return (
+                                    <div
+                                      key={match.id}
+                                      className={`bg-card border rounded-xl p-3 sm:p-4 shadow-sm transition-colors ${
+                                        scoring
+                                          ? scoring.isExactScore ? "border-emerald-500/40" : scoring.points > 0 ? "border-line" : "border-red-500/20"
+                                          : "border-line hover:border-line-hover"
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between gap-3">
+                                        {/* Home */}
+                                        <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
+                                          <span className="font-semibold text-content text-xs sm:text-sm text-right truncate">
+                                            {home.name}
+                                          </span>
+                                          <Flag iso2={home.iso2} name={home.name} size="md" />
+                                        </div>
+
+                                        {/* Score Display (Read Only) */}
+                                        <div className="flex items-center gap-2 shrink-0">
+                                          <div className="w-10 h-10 bg-base border border-line rounded-lg flex items-center justify-center font-bold text-base text-content shadow-inner">
+                                            {pred?.homeGoals ?? "-"}
+                                          </div>
+                                          <span className="text-content-muted font-bold">:</span>
+                                          <div className="w-10 h-10 bg-base border border-line rounded-lg flex items-center justify-center font-bold text-base text-content shadow-inner">
+                                            {pred?.awayGoals ?? "-"}
+                                          </div>
+                                        </div>
+
+                                        {/* Away */}
+                                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                                          <Flag iso2={away.iso2} name={away.name} size="md" />
+                                          <span className="font-semibold text-content text-xs sm:text-sm truncate">
+                                            {away.name}
+                                          </span>
+                                        </div>
+                                      </div>
+
+                                      {/* Resultado Oficial + Puntos */}
+                                      {official && scoring && (
+                                        <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-line/50">
+                                          <div className="flex items-center gap-2 text-xs text-content-muted">
+                                            <span className="font-medium">Oficial:</span>
+                                            <span className="font-bold text-content">
+                                              {official.homeGoals} - {official.awayGoals}
+                                            </span>
+                                          </div>
+                                          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${pointsColor}`}>
+                                            <span>+{scoring.points}</span>
+                                            <span className="hidden sm:inline">·</span>
+                                            <span className="hidden sm:inline">{pointsLabel}</span>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Tabla de Posiciones Resultante */}
+                      <div className="lg:col-span-2 space-y-4">
+                        <h3 className="text-lg font-bold text-content">Tabla de Posiciones</h3>
+                        <GroupStandings standings={standings} groupName={groupKey} />
+                      </div>
+                    </div>
+                  );
+                })()
+              ) : (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-bold text-brand flex items-center gap-2 mb-4">
+                    <Trophy size={20} />
+                    Fase de Eliminatorias
+                  </h3>
+                  <KnockoutBracket
+                    matches={ALL_KNOCKOUT_MATCHES}
+                    resolvedBracket={resolvedUserBracket}
+                    predictions={selectedUser.knockout_predictions}
+                    readOnly={true}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
     </div>
