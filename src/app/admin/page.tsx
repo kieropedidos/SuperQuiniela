@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
-import { ShieldCheck, AlertTriangle, Save, UserCheck, UserX, Clock, CheckCircle2, Eye, EyeOff, X, Trophy } from "lucide-react";
+import { ShieldCheck, AlertTriangle, Save, UserCheck, UserX, Clock, CheckCircle2, Eye, EyeOff, X, Trophy, Lock } from "lucide-react";
 import { 
   ALL_GROUP_MATCHES, 
   TEAMS, 
@@ -45,6 +45,12 @@ export default function AdminPage() {
   // Visibilidad global de las quinielas
   const [quinielasVisible, setQuinielasVisible] = useState<boolean>(false);
   const [savingVisibility, setSavingVisibility] = useState<boolean>(false);
+
+  // Gestión de bloqueos (inscripciones y ediciones)
+  const [blockRegistrations, setBlockRegistrations] = useState<boolean>(false);
+  const [savingRegistrations, setSavingRegistrations] = useState<boolean>(false);
+  const [blockEdits, setBlockEdits] = useState<boolean>(false);
+  const [savingEdits, setSavingEdits] = useState<boolean>(false);
 
   // Gestión de inscripciones
   interface PendingQuiniela {
@@ -192,9 +198,29 @@ export default function AdminPage() {
           .from("system_settings")
           .select("value")
           .eq("key", "quinielas_visible")
-          .single();
+          .maybeSingle();
         if (settingData && settingData.value) {
           setQuinielasVisible(!!settingData.value.enabled);
+        }
+
+        // Cargar bloqueo de inscripciones
+        const { data: regSetting } = await supabase
+          .from("system_settings")
+          .select("value")
+          .eq("key", "block_registrations")
+          .maybeSingle();
+        if (regSetting && regSetting.value) {
+          setBlockRegistrations(!!regSetting.value.enabled);
+        }
+
+        // Cargar bloqueo de ediciones
+        const { data: editSetting } = await supabase
+          .from("system_settings")
+          .select("value")
+          .eq("key", "block_edits")
+          .maybeSingle();
+        if (editSetting && editSetting.value) {
+          setBlockEdits(!!editSetting.value.enabled);
         }
 
         // Cargar resultados oficiales existentes
@@ -236,6 +262,44 @@ export default function AdminPage() {
       setQuinielasVisible(nextVal);
     }
     setSavingVisibility(false);
+  };
+
+  const handleToggleRegistrations = async () => {
+    setSavingRegistrations(true);
+    const nextVal = !blockRegistrations;
+    const { error } = await supabase
+      .from("system_settings")
+      .upsert({
+        key: "block_registrations",
+        value: { enabled: nextVal },
+        updated_at: new Date().toISOString()
+      });
+
+    if (error) {
+      alert("Error al cambiar bloqueo de inscripciones: " + error.message);
+    } else {
+      setBlockRegistrations(nextVal);
+    }
+    setSavingRegistrations(false);
+  };
+
+  const handleToggleEdits = async () => {
+    setSavingEdits(true);
+    const nextVal = !blockEdits;
+    const { error } = await supabase
+      .from("system_settings")
+      .upsert({
+        key: "block_edits",
+        value: { enabled: nextVal },
+        updated_at: new Date().toISOString()
+      });
+
+    if (error) {
+      alert("Error al cambiar bloqueo de ediciones: " + error.message);
+    } else {
+      setBlockEdits(nextVal);
+    }
+    setSavingEdits(false);
   };
 
   const handleUpdate = (matchId: string, side: "home" | "away", value: string) => {
@@ -295,39 +359,93 @@ export default function AdminPage() {
         </p>
       </div>
 
-      {/* Control de Visibilidad del Torneo */}
-      <div className="glass-panel p-5 mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border border-line">
-        <div className="flex items-center gap-3">
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${quinielasVisible ? 'bg-brand/10 text-brand border border-brand/30' : 'bg-red-500/10 text-red-500 border border-red-500/30'}`}>
-            {quinielasVisible ? <Eye size={22} /> : <EyeOff size={22} />}
+      {/* Ajustes Globales del Torneo */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        
+        {/* Visibilidad Pública */}
+        <div className="glass-panel p-5 flex flex-col justify-between gap-4 border border-line rounded-2xl bg-panel/30">
+          <div className="flex items-start gap-3">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${quinielasVisible ? 'bg-brand/10 text-brand border border-brand/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
+              {quinielasVisible ? <Eye size={20} /> : <EyeOff size={20} />}
+            </div>
+            <div>
+              <h3 className="font-bold text-content text-sm">Visibilidad del Torneo</h3>
+              <p className="text-xs text-content-muted mt-1 leading-relaxed">
+                {quinielasVisible 
+                  ? "Las quinielas y el ranking son visibles para todos." 
+                  : "Las quinielas y el ranking están ocultos para usuarios normales."}
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-bold text-content text-base">Visibilidad Pública del Torneo</h3>
-            <p className="text-xs text-content-muted mt-0.5">
-              {quinielasVisible 
-                ? "Las quinielas aprobadas y el ranking son visibles para todos los usuarios." 
-                : "Las quinielas y el ranking están ocultos para usuarios normales hasta que decidas activarlos."}
-            </p>
-          </div>
+          <button
+            onClick={handleToggleVisibility}
+            disabled={savingVisibility}
+            className={`w-full py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+              quinielasVisible 
+                ? 'bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20' 
+                : 'bg-brand/10 hover:bg-brand/20 text-brand border border-brand/20'
+            }`}
+          >
+            {savingVisibility ? "Guardando..." : quinielasVisible ? "Ocultar Rankings" : "Hacer Públicos"}
+          </button>
         </div>
 
-        <button
-          onClick={handleToggleVisibility}
-          disabled={savingVisibility}
-          className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 shrink-0 ${
-            quinielasVisible 
-              ? 'bg-red-500/15 hover:bg-red-500/25 text-red-500 border border-red-500/30' 
-              : 'bg-brand text-white shadow-[0_0_15px_rgba(0,176,107,0.3)] hover:bg-brand-hover'
-          }`}
-        >
-          {savingVisibility ? (
-            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-          ) : quinielasVisible ? (
-            <>Ocultar Quinielas</>
-          ) : (
-            <>Hacer Públicas</>
-          )}
-        </button>
+        {/* Bloqueo de Inscripciones */}
+        <div className="glass-panel p-5 flex flex-col justify-between gap-4 border border-line rounded-2xl bg-panel/30">
+          <div className="flex items-start gap-3">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${!blockRegistrations ? 'bg-brand/10 text-brand border border-brand/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
+              {!blockRegistrations ? <UserCheck size={20} /> : <UserX size={20} />}
+            </div>
+            <div>
+              <h3 className="font-bold text-content text-sm">Nuevas Inscripciones</h3>
+              <p className="text-xs text-content-muted mt-1 leading-relaxed">
+                {!blockRegistrations 
+                  ? "Se aceptan nuevas quinielas e inscripciones." 
+                  : "Las inscripciones están cerradas. No se permiten nuevos usuarios."}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleToggleRegistrations}
+            disabled={savingRegistrations}
+            className={`w-full py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+              !blockRegistrations 
+                ? 'bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20' 
+                : 'bg-brand/10 hover:bg-brand/20 text-brand border border-brand/20'
+            }`}
+          >
+            {savingRegistrations ? "Guardando..." : !blockRegistrations ? "Cerrar Inscripciones" : "Abrir Inscripciones"}
+          </button>
+        </div>
+
+        {/* Bloqueo de Ediciones */}
+        <div className="glass-panel p-5 flex flex-col justify-between gap-4 border border-line rounded-2xl bg-panel/30">
+          <div className="flex items-start gap-3">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${!blockEdits ? 'bg-brand/10 text-brand border border-brand/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
+              {!blockEdits ? <Clock size={20} /> : <Lock size={20} />}
+            </div>
+            <div>
+              <h3 className="font-bold text-content text-sm">Edición de Quinielas</h3>
+              <p className="text-xs text-content-muted mt-1 leading-relaxed">
+                {!blockEdits 
+                  ? "Los usuarios pueden editar sus predicciones ya enviadas." 
+                  : "Las ediciones están cerradas. Todas las predicciones están bloqueadas."}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleToggleEdits}
+            disabled={savingEdits}
+            className={`w-full py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+              !blockEdits 
+                ? 'bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20' 
+                : 'bg-brand/10 hover:bg-brand/20 text-brand border border-brand/20'
+            }`}
+          >
+            {savingEdits ? "Guardando..." : !blockEdits ? "Bloquear Ediciones" : "Permitir Ediciones"}
+          </button>
+        </div>
+
       </div>
 
       {/* Admin Tabs */}

@@ -18,7 +18,7 @@ import {
 import GroupStandings from "@/components/predictions/GroupStandings";
 import KnockoutBracket from "@/components/predictions/KnockoutBracket";
 import Flag from "@/components/ui/Flag";
-import { Trophy, ChevronRight, ChevronLeft, Check, Lock, Dices, Clock, Save } from "lucide-react";
+import { Trophy, ChevronRight, ChevronLeft, Check, Lock, Dices, Clock, Save, UserX } from "lucide-react";
 
 type Step = "groups" | "knockout" | "confirm";
 
@@ -42,7 +42,11 @@ export default function InscribirPage() {
   const [knockoutPredictions, setKnockoutPredictions] = useState<Record<string, MatchPrediction>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
-  const [registrationStatus, setRegistrationStatus] = useState<"loading" | "none" | "pending" | "approved">("loading");
+  const [registrationStatus, setRegistrationStatus] = useState<"loading" | "none" | "pending" | "approved" | "registrations_closed">("loading");
+
+  const [blockRegistrations, setBlockRegistrations] = useState(false);
+  const [blockEdits, setBlockEdits] = useState(false);
+  const [originalStatus, setOriginalStatus] = useState<string | null>(null);
 
   // Verificar si ya tiene quiniela inscrita y su estado de aprobación
   useEffect(() => {
@@ -52,13 +56,36 @@ export default function InscribirPage() {
         setRegistrationStatus("none");
         return;
       }
+
+      // Cargar configuraciones de bloqueo
+      let isRegBlocked = false;
+      let isEditsBlocked = false;
+      try {
+        const { data: settings } = await supabase
+          .from("system_settings")
+          .select("*");
+        if (settings) {
+          const regSetting = settings.find((s) => s.key === "block_registrations");
+          const editSetting = settings.find((s) => s.key === "block_edits");
+          isRegBlocked = !!regSetting?.value?.enabled;
+          isEditsBlocked = !!editSetting?.value?.enabled;
+          setBlockRegistrations(isRegBlocked);
+          setBlockEdits(isEditsBlocked);
+        }
+      } catch (err) {
+        console.error("Error al cargar configuraciones de bloqueo:", err);
+      }
+
       const { data } = await supabase
         .from("user_quinielas")
         .select("id, status, predictions, knockout_predictions")
         .eq("user_id", session.user.id)
-        .single();
+        .maybeSingle();
         
       if (data) {
+        // Guardar estado original
+        setOriginalStatus(data.status);
+
         // Verificar si la quiniela realmente está completa
         const predsMap = data.predictions || {};
         const koMap = data.knockout_predictions || {};
@@ -81,34 +108,59 @@ export default function InscribirPage() {
           }
         }
 
-        if (data.status === "draft" || !isComplete) {
-          if (data.predictions) {
-            setPredictions(data.predictions);
-          }
-          if (data.knockout_predictions) {
-            setKnockoutPredictions(data.knockout_predictions);
-          }
-          setRegistrationStatus("none");
+        const effectiveStatus = (data.status === "draft" || !isComplete) ? "draft" : data.status;
 
-          // Si figura como aprobada/pendiente en la DB pero está incompleta, la revertimos a borrador (draft)
-          if (data.status !== "draft") {
-            supabase
-              .from("user_quinielas")
-              .update({ status: "draft" })
-              .eq("id", data.id)
-              .then(({ error }) => {
-                if (error) console.error("Error al revertir quiniela incompleta a draft:", error);
-              });
+        if (effectiveStatus === "draft") {
+          // Si es borrador, pero las inscripciones están cerradas
+          if (isRegBlocked) {
+            setRegistrationStatus("registrations_closed");
+          } else {
+            if (data.predictions) {
+              setPredictions(data.predictions);
+            }
+            if (data.knockout_predictions) {
+              setKnockoutPredictions(data.knockout_predictions);
+            }
+            setRegistrationStatus("none");
+
+            // Si figura como aprobada/pendiente en la DB pero está incompleta, la revertimos a borrador (draft)
+            if (data.status !== "draft") {
+              supabase
+                .from("user_quinielas")
+                .update({ status: "draft" })
+                .eq("id", data.id)
+                .then(({ error }) => {
+                  if (error) console.error("Error al revertir quiniela incompleta a draft:", error);
+                });
+            }
           }
         } else {
-          setRegistrationStatus(data.status === "approved" ? "approved" : "pending");
+          // Si ya está inscrita (pending o approved)
+          if (isEditsBlocked) {
+            // Ediciones cerradas: mostramos pantalla de bloqueo según corresponda
+            setRegistrationStatus(data.status === "approved" ? "approved" : "pending");
+          } else {
+            // Ediciones abiertas: cargamos datos y permitimos editar
+            if (data.predictions) {
+              setPredictions(data.predictions);
+            }
+            if (data.knockout_predictions) {
+              setKnockoutPredictions(data.knockout_predictions);
+            }
+            setRegistrationStatus("none");
+          }
         }
       } else {
-        setRegistrationStatus("none");
+        // No tiene quiniela aún
+        if (isRegBlocked) {
+          setRegistrationStatus("registrations_closed");
+        } else {
+          setRegistrationStatus("none");
+        }
       }
     }
     checkRegistration();
-  }, []);
+  }, [router]);
 
   // Actualizar predicción de un partido
   const updatePrediction = useCallback(
@@ -263,6 +315,25 @@ export default function InscribirPage() {
         return;
       }
 
+      // Si las inscripciones están bloqueadas y no tiene una quiniela ya inscrita, bloquear guardado de borrador
+      const { data: settings } = await supabase
+        .from("system_settings")
+        .select("*");
+      
+      let isRegBlocked = false;
+      if (settings) {
+        const regSetting = settings.find((s) => s.key === "block_registrations");
+        isRegBlocked = !!regSetting?.value?.enabled;
+      }
+
+      const isEditing = originalStatus !== null && originalStatus !== "draft";
+
+      if (!isEditing && isRegBlocked) {
+        alert("❌ Las inscripciones de nuevas quinielas han sido cerradas por el administrador.");
+        setIsSavingDraft(false);
+        return;
+      }
+
       const { error } = await supabase
         .from("user_quinielas")
         .upsert({
@@ -303,15 +374,46 @@ export default function InscribirPage() {
         return;
       }
 
-      // Upsert: Si el user_id ya existe, lo actualiza. Si no, lo crea.
-      // Las quinielas nuevas siempre entran con status 'pending' hasta que el admin las apruebe.
+      // Si las inscripciones/ediciones están bloqueadas, denegar la acción de guardar
+      const { data: settings } = await supabase
+        .from("system_settings")
+        .select("*");
+      
+      let isRegBlocked = false;
+      let isEditsBlocked = false;
+      if (settings) {
+        const regSetting = settings.find((s) => s.key === "block_registrations");
+        const editSetting = settings.find((s) => s.key === "block_edits");
+        isRegBlocked = !!regSetting?.value?.enabled;
+        isEditsBlocked = !!editSetting?.value?.enabled;
+      }
+
+      const isEditing = originalStatus !== null && originalStatus !== "draft";
+
+      if (isEditing && isEditsBlocked) {
+        alert("❌ Las modificaciones a las quinielas han sido cerradas por el administrador.");
+        setIsSaving(false);
+        return;
+      }
+      if (!isEditing && isRegBlocked) {
+        alert("❌ Las inscripciones de nuevas quinielas han sido cerradas por el administrador.");
+        setIsSaving(false);
+        return;
+      }
+
+      // Si ya existía y estaba aprobada o pendiente, conservamos su estado
+      // Si era borrador (draft) o nueva, se guarda como 'pending'
+      const statusToSave = (originalStatus === "approved" || originalStatus === "pending")
+        ? originalStatus
+        : "pending";
+
       const { error } = await supabase
         .from("user_quinielas")
         .upsert({
           user_id: session.user.id,
           predictions: predictions,
           knockout_predictions: knockoutPredictions,
-          status: "pending",
+          status: statusToSave,
           updated_at: new Date().toISOString()
         }, { onConflict: "user_id" });
 
@@ -322,7 +424,7 @@ export default function InscribirPage() {
         return;
       }
 
-      // Redirigir al inicio al finalizar
+      alert(isEditing ? "💾 ¡Quiniela actualizada exitosamente!" : "🎉 ¡Quiniela inscrita exitosamente!");
       router.push("/");
     } catch (err) {
       console.error(err);
@@ -336,6 +438,26 @@ export default function InscribirPage() {
       <div className="max-w-7xl mx-auto py-32 text-center animate-in fade-in duration-500">
         <div className="w-12 h-12 border-4 border-brand border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
         <p className="text-content-muted font-medium">Verificando estado de tu inscripción...</p>
+      </div>
+    );
+  }
+
+  if (registrationStatus === "registrations_closed") {
+    return (
+      <div className="max-w-2xl mx-auto py-24 text-center animate-in zoom-in-95 duration-500">
+        <div className="w-24 h-24 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-500/30">
+          <UserX size={40} className="text-red-500" />
+        </div>
+        <h1 className="text-3xl font-extrabold text-content mb-4 tracking-tight">Inscripciones Cerradas</h1>
+        <p className="text-content-muted mb-8 text-lg">
+          El administrador ha cerrado las inscripciones para este torneo. Ya no se aceptan nuevas quinielas.
+        </p>
+        <button
+          onClick={() => router.push("/")}
+          className="px-8 py-3.5 bg-panel hover:bg-card border border-line rounded-xl text-content font-bold transition-all shadow-sm"
+        >
+          Volver al Inicio
+        </button>
       </div>
     );
   }
@@ -683,8 +805,16 @@ export default function InscribirPage() {
                 </>
               ) : (
                 <>
-                  <span className="hidden sm:inline">Inscribir Mi Quiniela</span>
-                  <span className="sm:hidden">Inscribir</span>
+                  <span className="hidden sm:inline">
+                    {originalStatus === "approved" || originalStatus === "pending"
+                      ? "Actualizar Mi Quiniela"
+                      : "Inscribir Mi Quiniela"}
+                  </span>
+                  <span className="sm:hidden">
+                    {originalStatus === "approved" || originalStatus === "pending"
+                      ? "Actualizar"
+                      : "Inscribir"}
+                  </span>
                 </>
               )}
             </button>

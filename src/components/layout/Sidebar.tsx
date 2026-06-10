@@ -24,8 +24,25 @@ export default function Sidebar() {
   const [username, setUsername] = useState<string>("Cargando...");
   const [points, setPoints] = useState<number>(0);
   const [quinielaStatus, setQuinielaStatus] = useState<string | null>(null);
+  const [blockEdits, setBlockEdits] = useState<boolean>(false);
 
   useEffect(() => {
+    async function fetchSettings() {
+      try {
+        const { data } = await supabase
+          .from("system_settings")
+          .select("value")
+          .eq("key", "block_edits")
+          .maybeSingle();
+        if (data && data.value) {
+          setBlockEdits(!!data.value.enabled);
+        }
+      } catch (err) {
+        console.error("Error al cargar configuración en Sidebar:", err);
+      }
+    }
+    fetchSettings();
+
     async function fetchPoints(userId: string) {
       try {
         // 1. Obtener la quiniela del usuario
@@ -216,7 +233,7 @@ export default function Sidebar() {
           {user ? (
             quinielaStatus === "draft" ? "Completa tu quiniela" :
             quinielaStatus === null ? "Registra tu quiniela" :
-            "Ver Mi Quiniela"
+            blockEdits ? "Ver Mi Quiniela" : "Editar Mi Quiniela"
           ) : (
             "Inscribir Quiniela"
           )}
