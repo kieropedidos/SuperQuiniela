@@ -72,11 +72,40 @@ export default function PronosticosPage() {
         if (session?.user) {
           const { data: userQ } = await supabase
             .from("user_quinielas")
-            .select("id, status")
+            .select("id, status, predictions, knockout_predictions")
             .eq("user_id", session.user.id)
             .maybeSingle();
-          setHasQuiniela(!!userQ && userQ.status !== "draft");
-          setQuinielaStatus(userQ?.status || null);
+            
+          if (userQ) {
+            // Verificar si la quiniela realmente está completa
+            const predsMap = userQ.predictions || {};
+            const koMap = userQ.knockout_predictions || {};
+            
+            let isComplete = true;
+            for (const m of ALL_GROUP_MATCHES) {
+              const p = predsMap[m.id];
+              if (!p || p.homeGoals === null || p.awayGoals === null) {
+                isComplete = false;
+                break;
+              }
+            }
+            if (isComplete) {
+              for (const m of ALL_KNOCKOUT_MATCHES) {
+                const p = koMap[m.id];
+                if (!p || p.homeGoals === null || p.awayGoals === null) {
+                  isComplete = false;
+                  break;
+                }
+              }
+            }
+            
+            const effectiveStatus = (userQ.status === "draft" || !isComplete) ? "draft" : userQ.status;
+            setHasQuiniela(effectiveStatus !== "draft");
+            setQuinielaStatus(effectiveStatus);
+          } else {
+            setHasQuiniela(false);
+            setQuinielaStatus(null);
+          }
         }
 
         // Cargar visibilidad global del torneo

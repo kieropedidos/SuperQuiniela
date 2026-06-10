@@ -59,7 +59,29 @@ export default function InscribirPage() {
         .single();
         
       if (data) {
-        if (data.status === "draft") {
+        // Verificar si la quiniela realmente está completa
+        const predsMap = data.predictions || {};
+        const koMap = data.knockout_predictions || {};
+        
+        let isComplete = true;
+        for (const m of ALL_GROUP_MATCHES) {
+          const p = predsMap[m.id];
+          if (!p || p.homeGoals === null || p.awayGoals === null) {
+            isComplete = false;
+            break;
+          }
+        }
+        if (isComplete) {
+          for (const m of ALL_KNOCKOUT_MATCHES) {
+            const p = koMap[m.id];
+            if (!p || p.homeGoals === null || p.awayGoals === null) {
+              isComplete = false;
+              break;
+            }
+          }
+        }
+
+        if (data.status === "draft" || !isComplete) {
           if (data.predictions) {
             setPredictions(data.predictions);
           }
@@ -67,6 +89,17 @@ export default function InscribirPage() {
             setKnockoutPredictions(data.knockout_predictions);
           }
           setRegistrationStatus("none");
+
+          // Si figura como aprobada/pendiente en la DB pero está incompleta, la revertimos a borrador (draft)
+          if (data.status !== "draft") {
+            supabase
+              .from("user_quinielas")
+              .update({ status: "draft" })
+              .eq("id", data.id)
+              .then(({ error }) => {
+                if (error) console.error("Error al revertir quiniela incompleta a draft:", error);
+              });
+          }
         } else {
           setRegistrationStatus(data.status === "approved" ? "approved" : "pending");
         }

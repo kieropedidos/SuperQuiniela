@@ -16,6 +16,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { calculateMatchPoints, calculateTournamentBonuses } from "@/scoringEngine";
+import { ALL_GROUP_MATCHES, ALL_KNOCKOUT_MATCHES } from "@/lib/worldCupData";
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -40,9 +41,32 @@ export default function Sidebar() {
           return;
         }
         
-        setQuinielaStatus(userQ.status);
+        // Verificar si la quiniela realmente está completa
+        const predsMap = userQ.predictions || {};
+        const koMap = userQ.knockout_predictions || {};
         
-        if (userQ.status === "draft") {
+        let isComplete = true;
+        for (const m of ALL_GROUP_MATCHES) {
+          const p = predsMap[m.id];
+          if (!p || p.homeGoals === null || p.awayGoals === null) {
+            isComplete = false;
+            break;
+          }
+        }
+        if (isComplete) {
+          for (const m of ALL_KNOCKOUT_MATCHES) {
+            const p = koMap[m.id];
+            if (!p || p.homeGoals === null || p.awayGoals === null) {
+              isComplete = false;
+              break;
+            }
+          }
+        }
+        
+        const effectiveStatus = (userQ.status === "draft" || !isComplete) ? "draft" : userQ.status;
+        setQuinielaStatus(effectiveStatus);
+        
+        if (effectiveStatus === "draft") {
           setPoints(0);
           return;
         }
