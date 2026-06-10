@@ -25,7 +25,7 @@ export interface MatchScoringResult {
 
 /**
  * Función pura que calcula exactamente los puntos obtenidos por un usuario en base a su predicción
- * y el resultado real del partido en los 90 minutos reglamentarios.
+ * y el resultado real del partido (90 minutos reglamentarios en fase de grupos, o partido completo con penales en eliminatorias).
  * 
  * Reglas de Puntuación aplicadas:
  * 1. Marcador Exacto (goles coinciden perfectamente): +5 puntos.

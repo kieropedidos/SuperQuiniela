@@ -75,7 +75,7 @@ function BracketMatchCard({ match, homeCode, awayCode, prediction, readOnly, onU
           <span className={`text-[10px] font-semibold ${
             isTie ? "text-red-500" : hasBothTeams ? "text-brand" : "text-content-muted"
           }`}>
-            {isTie ? "Requiere Desempate" : hasBothTeams ? "Pendiente" : "TBD"}
+            {isTie ? "No se permiten empates" : hasBothTeams ? "Pendiente" : "TBD"}
           </span>
         </div>
         {match.round === "R32" && R32_MATCH_DESCRIPTIONS[match.id] && (
@@ -314,6 +314,17 @@ export default function KnockoutBracket({
 
   return (
     <>
+      {/* Banner de regla de penales (Visible en desktop y móvil) */}
+      <div className="bg-brand/5 border border-brand/20 rounded-xl p-4 mb-6 text-xs leading-relaxed">
+        <span className="font-bold text-brand block mb-1">⚔️ Regla de Eliminatorias:</span>
+        <span className="text-content">
+          En las eliminatorias <strong>el empate no está permitido</strong>. Las predicciones deben incluir los goles de la prórroga y de la definición por penales si el partido llega a esa instancia (el partido completo).
+        </span>
+        <span className="text-content-muted italic mt-1 block font-semibold">
+          Ejemplo: Si el partido termina 1-1 en cancha y 4-3 en penales, el resultado final acumulado es 5-4. Debes ingresar 5-4 en tu quiniela para predecir el resultado.
+        </span>
+      </div>
+
       {/* Vista Desktop (Árbol Horizontal) */}
       <div className="hidden lg:block space-y-6 relative group/bracket">
         

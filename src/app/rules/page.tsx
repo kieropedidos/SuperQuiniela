@@ -22,7 +22,7 @@ export default function RulesPage() {
             <div className="w-8 h-8 rounded-full bg-brand/10 text-brand flex items-center justify-center">⚽</div>
             <h2 className="text-2xl font-bold text-content">Puntos por Partido</h2>
           </div>
-          <p className="text-sm text-content-muted uppercase tracking-wider font-semibold mb-6">Fase de Grupos y Eliminatorias (90 Mins)</p>
+          <p className="text-sm text-content-muted uppercase tracking-wider font-semibold mb-6">Fase de Grupos (90 Mins) y Eliminatorias (Partido Completo)</p>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             
@@ -59,8 +59,15 @@ export default function RulesPage() {
           </div>
 
           {/* Aclaración sobre 0 puntos */}
+          <div className="text-xs text-content-muted bg-panel border border-line rounded-xl p-4 mb-4 leading-relaxed">
+            <span className="font-bold text-yellow-500">⚠️ Nota Importante:</span> Si pronosticas la victoria de un equipo y resulta ganador el equipo contrario, obtendrás <strong className="text-content">0 puntos</strong>. El punto de consuelo (+1) se otorga únicamente si predijiste un empate y ganó un equipo, o si predijiste un ganador y el partido terminó empatado (solo aplica a Fase de Grupos).
+          </div>
+
+          {/* Aclaración sobre Eliminatorias y Empates */}
           <div className="text-xs text-content-muted bg-panel border border-line rounded-xl p-4 mb-8 leading-relaxed">
-            <span className="font-bold text-yellow-500">⚠️ Nota Importante:</span> Si pronosticas la victoria de un equipo y resulta ganador el equipo contrario, obtendrás <strong className="text-content">0 puntos</strong>. El punto de consuelo (+1) se otorga únicamente si predijiste un empate y ganó un equipo, o si predijiste un ganador y el partido terminó empatado.
+            <span className="font-bold text-brand">⚔️ Regla de Eliminatorias:</span> En la fase de eliminatorias (desde Ronda de 32 en adelante), **el empate no está permitido**. Los pronósticos y resultados oficiales deben incluir los goles de la definición por penales si el partido va a esa instancia (el partido completo).
+            <br />
+            <span className="text-content-muted italic mt-1 block">Ejemplo: Si el partido termina 1-1 en cancha y 4-3 en tanda de penales, el resultado total oficial es 5-4. Debes ingresar 5-4 en tu quiniela para predecir el resultado exacto de ese partido.</span>
           </div>
 
           {/* Lockdown Policy Box */}
