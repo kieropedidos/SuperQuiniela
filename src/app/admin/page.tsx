@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
-import { ShieldCheck, AlertTriangle, Save, UserCheck, UserX, Clock, CheckCircle2, Eye, EyeOff, X, Trophy, Lock } from "lucide-react";
+import { ShieldCheck, AlertTriangle, Save, UserCheck, UserX, Clock, CheckCircle2, Eye, EyeOff, X, Trophy, Lock, Dices, Trash2 } from "lucide-react";
 import { 
   ALL_GROUP_MATCHES, 
   TEAMS, 
@@ -400,6 +400,117 @@ export default function AdminPage() {
        setSavedMatches((prev) => ({ ...prev, [matchId]: true }));
     } else {
        alert("Error guardando el partido: " + error.message);
+    }
+  };
+
+  const handleSimulateRandomResults = async () => {
+    const isGroups = resultsTab === "groups";
+    const phaseName = isGroups ? "Fase de Grupos" : "Eliminatorias";
+    
+    if (!confirm(`¿Seguro que deseas simular y guardar marcadores aleatorios para la ${phaseName}? Esto actualizará la base de datos y afectará a todas las quinielas.`)) {
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      const rows: any[] = [];
+      const updatedResults: Record<string, { homeGoals: number; awayGoals: number }> = { ...results };
+      const updatedSaved: Record<string, boolean> = { ...savedMatches };
+
+      if (isGroups) {
+        CHRONOLOGICAL_MATCHES.forEach((m) => {
+          const home = Math.floor(Math.random() * 4);
+          const away = Math.floor(Math.random() * 4);
+          rows.push({
+            match_id: m.id,
+            home_goals: home,
+            away_goals: away,
+            is_completed: true
+          });
+          updatedResults[m.id] = { homeGoals: home, awayGoals: away };
+          updatedSaved[m.id] = true;
+        });
+      } else {
+        // Para las eliminatorias, necesitamos asegurar que no haya empates
+        ALL_KNOCKOUT_MATCHES.forEach((m) => {
+          let home = Math.floor(Math.random() * 4);
+          let away = Math.floor(Math.random() * 4);
+          while (home === away) {
+            home = Math.floor(Math.random() * 5);
+            away = Math.floor(Math.random() * 5);
+          }
+          rows.push({
+            match_id: m.id,
+            home_goals: home,
+            away_goals: away,
+            is_completed: true
+          });
+          updatedResults[m.id] = { homeGoals: home, awayGoals: away };
+          updatedSaved[m.id] = true;
+        });
+      }
+
+      // Upsert a Supabase en bloque
+      const { error } = await supabase
+        .from("official_matches")
+        .upsert(rows);
+
+      if (error) {
+        alert("Error al guardar marcadores simulados: " + error.message);
+      } else {
+        setResults(updatedResults);
+        setSavedMatches(updatedSaved);
+        alert(`🎉 ¡Marcadores para la ${phaseName} simulados e insertados con éxito!`);
+        // Recargar quinielas para actualizar puntajes en la vista del admin
+        await loadQuinielas();
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Ocurrió un error al simular resultados.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleClearOfficialResults = async () => {
+    const isGroups = resultsTab === "groups";
+    const phaseName = isGroups ? "Fase de Grupos" : "Eliminatorias";
+    
+    if (!confirm(`¿Seguro que deseas BORRAR todos los resultados oficiales de la ${phaseName} de la base de datos?`)) {
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      const matchIds = isGroups 
+        ? CHRONOLOGICAL_MATCHES.map((m) => m.id)
+        : ALL_KNOCKOUT_MATCHES.map((m) => m.id);
+
+      const { error } = await supabase
+        .from("official_matches")
+        .delete()
+        .in("match_id", matchIds);
+
+      if (error) {
+        alert("Error al borrar resultados: " + error.message);
+      } else {
+        // Limpiar del estado local
+        const updatedResults = { ...results };
+        const updatedSaved = { ...savedMatches };
+        matchIds.forEach((id) => {
+          delete updatedResults[id];
+          delete updatedSaved[id];
+        });
+        setResults(updatedResults);
+        setSavedMatches(updatedSaved);
+        alert(`🧹 ¡Resultados de la ${phaseName} eliminados con éxito!`);
+        await loadQuinielas();
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Ocurrió un error al limpiar resultados.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -854,11 +965,31 @@ export default function AdminPage() {
 
           {/* Match List */}
           <div className="glass-panel p-6 space-y-6">
-            <div className="flex items-center justify-between border-b border-line pb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-line pb-4 gap-3">
               <h2 className="text-xl font-bold text-content">
                 {resultsTab === "groups" ? "Partidos de Grupo Oficiales" : "Partidos de Eliminatorias Oficiales"}
               </h2>
-              <span className="text-sm text-content-muted">Guarda uno por uno</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSimulateRandomResults}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-brand/10 hover:bg-brand/20 border border-brand/20 rounded-lg text-xs font-bold text-brand transition-all active:scale-95 shrink-0"
+                >
+                  <Dices size={14} />
+                  Simular al Azar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearOfficialResults}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg text-xs font-bold text-red-500 transition-all active:scale-95 shrink-0"
+                >
+                  <Trash2 size={14} />
+                  Limpiar Todo
+                </button>
+                <span className="text-xs text-content-muted font-medium ml-2 hidden md:inline">
+                  Guarda uno por uno
+                </span>
+              </div>
             </div>
 
             <div className="flex flex-col gap-4">
