@@ -280,35 +280,16 @@ export function calculateUserPoints(
     const pred = isKnockout ? userKO[om.match_id] : userPreds[om.match_id];
 
     if (pred && pred.homeGoals !== null && pred.awayGoals !== null) {
-      let teamsMatch = true;
+      const pts = calculateMatchPoints(
+        pred.homeGoals,
+        pred.awayGoals,
+        om.home_goals,
+        om.away_goals
+      );
+      matchPoints += pts;
 
-      if (isKnockout) {
-        const uTeams = userBracket[om.match_id];
-        const oTeams = officialBracket[om.match_id];
-        if (
-          !uTeams ||
-          !oTeams ||
-          !uTeams.home ||
-          !uTeams.away ||
-          uTeams.home !== oTeams.home ||
-          uTeams.away !== oTeams.away
-        ) {
-          teamsMatch = false;
-        }
-      }
-
-      if (teamsMatch) {
-        const pts = calculateMatchPoints(
-          pred.homeGoals,
-          pred.awayGoals,
-          om.home_goals,
-          om.away_goals
-        );
-        matchPoints += pts;
-
-        if (pred.homeGoals === om.home_goals && pred.awayGoals === om.away_goals) {
-          exactScoresCount++;
-        }
+      if (pred.homeGoals === om.home_goals && pred.awayGoals === om.away_goals) {
+        exactScoresCount++;
       }
     }
   });

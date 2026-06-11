@@ -77,40 +77,28 @@ function BracketMatchCard({
   let pointsColor = "";
 
   if (prediction && prediction.homeGoals !== null && prediction.awayGoals !== null && official) {
-    const uTeams = { home: homeCode, away: awayCode };
-    const oTeams = officialResolved?.[match.id];
+    pointsForThisMatch = calculateMatchPoints(
+      prediction.homeGoals,
+      prediction.awayGoals,
+      official.homeGoals,
+      official.awayGoals
+    );
+    const scoring = getDetailedMatchScoring(
+      prediction.homeGoals,
+      prediction.awayGoals,
+      official.homeGoals,
+      official.awayGoals
+    );
+    pointsColor = scoring.isExactScore ? "text-emerald-400 bg-emerald-500/20 border-emerald-500/40"
+      : scoring.isWinnerGuessed || scoring.isTieGuessed ? "text-green-400 bg-green-500/15 border-green-500/30"
+      : scoring.isConsolation ? "text-yellow-400 bg-yellow-500/15 border-yellow-500/30"
+      : "text-red-400 bg-red-500/15 border-red-500/30";
     
-    // Check if user's resolved teams match the official resolved teams
-    const teamsMatch = !!uTeams && !!oTeams && uTeams.home === oTeams.home && uTeams.away === oTeams.away;
-    
-    if (!teamsMatch) {
-      pointsForThisMatch = 0;
-      pointsLabel = "No Clasificó";
-      pointsColor = "text-red-400 bg-red-500/15 border-red-500/30";
-    } else {
-      pointsForThisMatch = calculateMatchPoints(
-        prediction.homeGoals,
-        prediction.awayGoals,
-        official.homeGoals,
-        official.awayGoals
-      );
-      const scoring = getDetailedMatchScoring(
-        prediction.homeGoals,
-        prediction.awayGoals,
-        official.homeGoals,
-        official.awayGoals
-      );
-      pointsColor = scoring.isExactScore ? "text-emerald-400 bg-emerald-500/20 border-emerald-500/40"
-        : scoring.isWinnerGuessed || scoring.isTieGuessed ? "text-green-400 bg-green-500/15 border-green-500/30"
-        : scoring.isConsolation ? "text-yellow-400 bg-yellow-500/15 border-yellow-500/30"
-        : "text-red-400 bg-red-500/15 border-red-500/30";
-      
-      pointsLabel = scoring.isExactScore ? "Exacto"
-        : scoring.isWinnerGuessed ? "Ganador"
-        : scoring.isTieGuessed ? "Empate"
-        : scoring.isConsolation ? "Cercano"
-        : "Errado";
-    }
+    pointsLabel = scoring.isExactScore ? "Exacto"
+      : scoring.isWinnerGuessed ? "Ganador"
+      : scoring.isTieGuessed ? "Empate"
+      : scoring.isConsolation ? "Cercano"
+      : "Errado";
   }
 
   return (
@@ -242,7 +230,7 @@ function BracketMatchCard({
           </div>
           {pointsForThisMatch !== null && (
             <span className={`px-1.5 py-0.5 rounded font-bold border ${pointsColor}`} title={pointsLabel}>
-              +{pointsForThisMatch} pts {pointsLabel === "No Clasificó" ? "(NC)" : ""}
+              +{pointsForThisMatch} pts
             </span>
           )}
         </div>

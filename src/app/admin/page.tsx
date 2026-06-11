@@ -1199,42 +1199,20 @@ export default function AdminPage() {
                                   const away = TEAMS[match.awayTeam];
                                   const pred = selectedUser.predictions[match.id];
                                   const official = results[match.id];
-                                  const isKnockout = match.id.startsWith("M");
-                                  let teamsMatch = true;
-                                  if (isKnockout) {
-                                    const uTeams = resolvedUserBracket[match.id];
-                                    const oTeams = officialBracket[match.id];
-                                    if (
-                                      !uTeams ||
-                                      !oTeams ||
-                                      !uTeams.home ||
-                                      !uTeams.away ||
-                                      uTeams.home !== oTeams.home ||
-                                      uTeams.away !== oTeams.away
-                                    ) {
-                                      teamsMatch = false;
-                                    }
-                                  }
-
+                                  
                                   const scoring = (pred && official && pred.homeGoals !== null && pred.awayGoals !== null)
                                     ? getDetailedMatchScoring(pred.homeGoals, pred.awayGoals, official.homeGoals, official.awayGoals)
                                     : null;
-
-                                  if (scoring && isKnockout && !teamsMatch) {
-                                    scoring.points = 0;
-                                  }
                                   
                                   const pointsColor = scoring
-                                    ? isKnockout && !teamsMatch ? "text-red-400 bg-red-500/15 border-red-500/30"
-                                    : scoring.isExactScore ? "text-emerald-400 bg-emerald-500/20 border-emerald-500/40"
+                                    ? scoring.isExactScore ? "text-emerald-400 bg-emerald-500/20 border-emerald-500/40"
                                     : scoring.isWinnerGuessed || scoring.isTieGuessed ? "text-green-400 bg-green-500/15 border-green-500/30"
                                     : scoring.isConsolation ? "text-yellow-400 bg-yellow-500/15 border-yellow-500/30"
                                     : "text-red-400 bg-red-500/15 border-red-500/30"
                                     : null;
                                   
                                   const pointsLabel = scoring
-                                    ? isKnockout && !teamsMatch ? "No Clasificó"
-                                    : scoring.isExactScore ? "Exacto"
+                                    ? scoring.isExactScore ? "Exacto"
                                     : scoring.isWinnerGuessed ? "Ganador"
                                     : scoring.isTieGuessed ? "Empate"
                                     : scoring.isConsolation ? "Cercano"

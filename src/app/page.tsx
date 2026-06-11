@@ -533,31 +533,21 @@ export default function PronosticosPage() {
                 const officialGroupResults = getGroupResults(officialGroupPreds);
                 const officialResolved = resolveKnockoutBracket(officialGroupResults, officialKOPreds);
 
-                const getMatchPoints = (matchId: string, isKO: boolean, userPreds: Record<string, MatchPrediction> | undefined, userResolved: any) => {
+                const getMatchPoints = (matchId: string, userPreds: Record<string, MatchPrediction> | undefined) => {
                   if (!userPreds) return 0;
                   const pred = userPreds[matchId];
                   const official = officialMatchesMap[matchId];
                   if (!pred || pred.homeGoals === null || pred.awayGoals === null || !official) {
                     return 0;
                   }
-                  if (isKO) {
-                    const uTeams = userResolved[matchId];
-                    const oTeams = officialResolved[matchId];
-                    if (
-                      !uTeams ||
-                      !oTeams ||
-                      !uTeams.home ||
-                      !uTeams.away ||
-                      uTeams.home !== oTeams.home ||
-                      uTeams.away !== oTeams.away
-                    ) {
-                      return 0;
-                    }
-                  }
                   return calculateMatchPoints(pred.homeGoals, pred.awayGoals, official.home_goals, official.away_goals);
                 };
 
-                const renderPointsBadge = (points: number, pred: MatchPrediction | undefined, official: any) => {
+                const renderPointsBadge = (
+                  points: number, 
+                  pred: MatchPrediction | undefined, 
+                  official: any
+                ) => {
                   if (!pred || pred.homeGoals === null || pred.awayGoals === null) {
                     return <span className="text-[10px] text-content-muted bg-panel/30 border border-line/50 px-2 py-0.5 rounded-full font-medium">Sin pronosticar</span>;
                   }
@@ -566,7 +556,6 @@ export default function PronosticosPage() {
                   }
                   
                   const scoring = getDetailedMatchScoring(pred.homeGoals, pred.awayGoals, official.home_goals, official.away_goals);
-                  
                   const pointsColor = scoring.isExactScore ? "text-emerald-400 bg-emerald-500/20 border-emerald-500/40"
                     : scoring.isWinnerGuessed || scoring.isTieGuessed ? "text-green-400 bg-green-500/15 border-green-500/30"
                     : scoring.isConsolation ? "text-yellow-400 bg-yellow-500/15 border-yellow-500/30"
@@ -638,8 +627,8 @@ export default function PronosticosPage() {
                   const userAPred = userA ? (isKO ? userA.knockoutPredictions[match.id] : userA.predictions[match.id]) : undefined;
                   const userBPred = userB ? (isKO ? userB.knockoutPredictions[match.id] : userB.predictions[match.id]) : undefined;
 
-                  const ptsA = getMatchPoints(match.id, isKO, isKO ? userA?.knockoutPredictions : userA?.predictions, userAResolved);
-                  const ptsB = getMatchPoints(match.id, isKO, isKO ? userB?.knockoutPredictions : userB?.predictions, userBResolved);
+                  const ptsA = getMatchPoints(match.id, isKO ? userA?.knockoutPredictions : userA?.predictions);
+                  const ptsB = getMatchPoints(match.id, isKO ? userB?.knockoutPredictions : userB?.predictions);
                   const official = officialMatchesMap[match.id];
 
                   return (
