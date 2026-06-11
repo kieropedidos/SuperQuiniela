@@ -264,6 +264,132 @@ export default function KnockoutBracket({
   const [activeMobileRound, setActiveMobileRound] = useState<string>("R32");
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  const getPodium = (
+    bracket: Record<string, { home: string; away: string }>,
+    preds: Record<string, MatchPrediction>
+  ) => {
+    const m103 = bracket["M103"]; // 3RD PLACE MATCH
+    const p103 = preds["M103"];
+    let third = "";
+    let fourth = "";
+    if (m103 && p103 && p103.homeGoals !== null && p103.awayGoals !== null && m103.home && m103.away) {
+      if (p103.homeGoals > p103.awayGoals) {
+        third = m103.home;
+        fourth = m103.away;
+      } else {
+        third = m103.away;
+        fourth = m103.home;
+      }
+    }
+
+    const m104 = bracket["M104"]; // FINAL
+    const p104 = preds["M104"];
+    let champion = "";
+    let runnerUp = "";
+    if (m104 && p104 && p104.homeGoals !== null && p104.awayGoals !== null && m104.home && m104.away) {
+      if (p104.homeGoals > p104.awayGoals) {
+        champion = m104.home;
+        runnerUp = m104.away;
+      } else {
+        champion = m104.away;
+        runnerUp = m104.home;
+      }
+    }
+
+    return { champion, runnerUp, third, fourth };
+  };
+
+  // Convertir el officialMatchesMap a predictions para getPodium
+  const officialPredsForPodium: Record<string, MatchPrediction> = {};
+  if (officialMatchesMap) {
+    Object.entries(officialMatchesMap).forEach(([id, val]) => {
+      officialPredsForPodium[id] = {
+        matchId: id,
+        homeGoals: val.homeGoals,
+        awayGoals: val.awayGoals,
+      };
+    });
+  }
+
+  const userPodium = getPodium(resolvedBracket, predictions);
+  const officialPodium = officialResolved ? getPodium(officialResolved, officialPredsForPodium) : { champion: "", runnerUp: "", third: "", fourth: "" };
+
+  const isFinalMatchCompleted = officialMatchesMap?.["M104"] !== undefined;
+  const is3rdMatchCompleted = officialMatchesMap?.["M103"] !== undefined;
+
+  const renderPodiumCard = (
+    title: string,
+    emoji: string,
+    userTeamCode: string,
+    officialTeamCode: string,
+    isCompleted: boolean
+  ) => {
+    const userTeam = userTeamCode ? TEAMS[userTeamCode] : null;
+    const officialTeam = officialTeamCode ? TEAMS[officialTeamCode] : null;
+    const isCorrect = isCompleted && userTeamCode && officialTeamCode && userTeamCode === officialTeamCode;
+
+    return (
+      <div className={`bg-card border rounded-xl p-4 flex flex-col justify-between transition-all duration-300 ${
+        isCorrect 
+          ? "border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]" 
+          : isCompleted 
+          ? "border-red-500/20" 
+          : "border-line hover:border-brand/20"
+      }`}>
+        <div>
+          <div className="flex items-center justify-between mb-3 border-b border-line/40 pb-2">
+            <span className="text-xs font-extrabold text-content uppercase tracking-wider flex items-center gap-1">
+              <span>{emoji}</span> {title}
+            </span>
+            {isCompleted ? (
+              isCorrect ? (
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold text-emerald-400 bg-emerald-500/20 border border-emerald-500/30">
+                  +5 pts Acertado
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold text-red-400 bg-red-500/15 border-red-500/30">
+                  +0 pts Incorrecto
+                </span>
+              )
+            ) : (
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold text-content-muted bg-panel/50 border border-line">
+                Pendiente
+              </span>
+            )}
+          </div>
+
+          {/* Pronosticado */}
+          <div className="space-y-1">
+            <span className="text-[10px] text-content-muted font-semibold block uppercase">Tu Pronóstico:</span>
+            {userTeam ? (
+              <div className="flex items-center gap-2 bg-panel/30 border border-line/50 p-2 rounded-lg">
+                <Flag iso2={userTeam.iso2} name={userTeam.name} size="md" />
+                <span className="text-xs font-semibold text-content truncate">{userTeam.name}</span>
+              </div>
+            ) : (
+              <div className="text-xs text-content-muted italic p-2 bg-panel/10 rounded-lg">Por definir</div>
+            )}
+          </div>
+        </div>
+
+        {/* Real */}
+        {isCompleted && (
+          <div className="mt-3 pt-3 border-t border-line/40 space-y-1">
+            <span className="text-[10px] text-content-muted font-semibold block uppercase">Oficial Final:</span>
+            {officialTeam ? (
+              <div className="flex items-center gap-2 bg-base/50 p-2 rounded-lg border border-line/30">
+                <Flag iso2={officialTeam.iso2} name={officialTeam.name} size="md" />
+                <span className="text-xs font-bold text-brand truncate">{officialTeam.name}</span>
+              </div>
+            ) : (
+              <div className="text-xs text-content-muted italic">TBD</div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const scrollBracket = (direction: "left" | "right") => {
     if (scrollContainerRef.current) {
       const scrollAmount = 350;
@@ -635,6 +761,50 @@ export default function KnockoutBracket({
           </div>
           {/* Gradiente de desplazamiento horizontal para pestañas en móvil */}
           <div className="absolute right-0 top-0 bottom-3 w-8 pointer-events-none bg-gradient-to-l from-base to-transparent"></div>
+        </div>
+        {/* Podio Final (Suma +5 puntos por acierto) */}
+        <div className="border-t border-line/30 pt-8 mt-12 mb-4">
+          <h3 className="text-sm font-extrabold uppercase tracking-widest text-brand text-center mb-6 flex items-center justify-center gap-2">
+            <span>🏆</span> Podio Final Pronosticado <span>🏆</span>
+          </h3>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-4xl mx-auto">
+            {/* Campeón */}
+            {renderPodiumCard(
+              "Campeón",
+              "🏆",
+              userPodium.champion,
+              officialPodium.champion,
+              isFinalMatchCompleted
+            )}
+            
+            {/* Subcampeón */}
+            {renderPodiumCard(
+              "Subcampeón",
+              "🥈",
+              userPodium.runnerUp,
+              officialPodium.runnerUp,
+              isFinalMatchCompleted
+            )}
+
+            {/* 3er Lugar */}
+            {renderPodiumCard(
+              "3er Lugar",
+              "🥉",
+              userPodium.third,
+              officialPodium.third,
+              is3rdMatchCompleted
+            )}
+
+            {/* 4to Lugar */}
+            {renderPodiumCard(
+              "4to Lugar",
+              "🎗️",
+              userPodium.fourth,
+              officialPodium.fourth,
+              is3rdMatchCompleted
+            )}
+          </div>
         </div>
       </div>
     </>
