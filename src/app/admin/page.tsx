@@ -34,6 +34,15 @@ const CHRONOLOGICAL_MATCHES = [...ALL_GROUP_MATCHES].sort((a, b) => {
   return numA - numB;
 });
 
+const ROUND_DESCRIPTIONS: Record<string, string> = {
+  R32: "Ronda de 32 (Dieciseisavos)",
+  R16: "Octavos de Final",
+  QF: "Cuartos de Final",
+  SF: "Semifinales",
+  "3RD": "Tercer Puesto",
+  FINAL: "Gran Final",
+};
+
 export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [results, setResults] = useState<Record<string, { homeGoals: number; awayGoals: number }>>({});
@@ -1011,8 +1020,13 @@ export default function AdminPage() {
                   return (
                     <div key={match.id} className="bg-card border border-line rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 animate-in fade-in duration-200">
                       
-                      <div className="flex items-center justify-between w-full md:w-auto flex-1">
-                        <span className="text-xs font-bold text-content-muted w-10 shrink-0">{match.id}</span>
+                      <div className="flex items-center justify-between w-full md:w-auto flex-1 gap-4">
+                        <div className="flex flex-col w-32 shrink-0">
+                          <span className="text-xs font-bold text-brand">{match.id}</span>
+                          <span className="text-[10px] text-content-muted font-semibold mt-0.5">
+                            {isKnockout ? ROUND_DESCRIPTIONS[(match as any).round] : `Grupo ${(match as any).group}`}
+                          </span>
+                        </div>
                         
                         {/* Home */}
                         <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
