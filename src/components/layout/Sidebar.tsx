@@ -15,7 +15,7 @@ import {
   HelpCircle,
   ShieldCheck,
 } from "lucide-react";
-import { calculateMatchPoints, calculateTournamentBonuses } from "@/scoringEngine";
+import { calculateUserPoints } from "@/scoringEngine";
 import { ALL_GROUP_MATCHES, ALL_KNOCKOUT_MATCHES } from "@/lib/worldCupData";
 
 export default function Sidebar() {
@@ -98,29 +98,14 @@ export default function Sidebar() {
           return;
         }
         
-        // 3. Calcular puntos de partidos
-        let total = 0;
-        officialMatches.forEach((om) => {
-          const pred = userQ.predictions?.[om.match_id] || userQ.knockout_predictions?.[om.match_id];
-          if (pred && pred.homeGoals !== null && pred.awayGoals !== null) {
-            total += calculateMatchPoints(
-              pred.homeGoals,
-              pred.awayGoals,
-              om.home_goals,
-              om.away_goals
-            );
-          }
-        });
-        
-        // 4. Calcular puntos de bonos
-        const bonuses = calculateTournamentBonuses(
+        // 3. Calcular puntos en tiempo real
+        const scoring = calculateUserPoints(
           userQ.predictions || {},
           userQ.knockout_predictions || {},
           officialMatches
         );
-        total += bonuses.total;
         
-        setPoints(total);
+        setPoints(scoring.totalPoints);
       } catch (err) {
         console.error("Error al calcular puntos en Sidebar:", err);
         setPoints(0);

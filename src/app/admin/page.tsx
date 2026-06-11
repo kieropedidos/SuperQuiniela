@@ -41,6 +41,7 @@ export default function AdminPage() {
   const [savedMatches, setSavedMatches] = useState<Record<string, boolean>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [adminTab, setAdminTab] = useState<"inscripciones" | "resultados">("inscripciones");
+  const [resultsTab, setResultsTab] = useState<"groups" | "knockout">("groups");
 
   // Visibilidad global de las quinielas
   const [quinielasVisible, setQuinielasVisible] = useState<boolean>(false);
@@ -153,6 +154,37 @@ export default function AdminPage() {
     const groupResults = getGroupResults(selectedUser.predictions);
     return resolveKnockoutBracket(groupResults, selectedUser.knockout_predictions);
   }, [selectedUser]);
+
+  // Resolver bracket oficial para comparar clasificados y mostrarlos en admin
+  const officialBracket = useMemo(() => {
+    const officialGroupPreds: Record<string, MatchPrediction> = {};
+    const officialKOPreds: Record<string, MatchPrediction> = {};
+
+    CHRONOLOGICAL_MATCHES.forEach((m) => {
+      const res = results[m.id];
+      if (res && res.homeGoals !== undefined && res.awayGoals !== undefined) {
+        officialGroupPreds[m.id] = {
+          matchId: m.id,
+          homeGoals: res.homeGoals,
+          awayGoals: res.awayGoals,
+        };
+      }
+    });
+
+    ALL_KNOCKOUT_MATCHES.forEach((m) => {
+      const res = results[m.id];
+      if (res && res.homeGoals !== undefined && res.awayGoals !== undefined) {
+        officialKOPreds[m.id] = {
+          matchId: m.id,
+          homeGoals: res.homeGoals,
+          awayGoals: res.awayGoals,
+        };
+      }
+    });
+
+    const officialGroupResults = getGroupResults(officialGroupPreds);
+    return resolveKnockoutBracket(officialGroupResults, officialKOPreds);
+  }, [results]);
 
   const handleApprove = async (quinielaId: string) => {
     setProcessingIds((prev) => ({ ...prev, [quinielaId]: true }));
@@ -737,85 +769,141 @@ export default function AdminPage() {
             </div>
           </div>
 
+          {/* Sub-tabs for Results Filtering */}
+          <div className="flex gap-2 mb-6">
+            <button
+              onClick={() => setResultsTab("groups")}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all border ${
+                resultsTab === "groups"
+                  ? "bg-brand text-white border-brand shadow-[0_0_12px_rgba(0,176,107,0.25)]"
+                  : "bg-panel text-content-muted border-line hover:text-content"
+              }`}
+            >
+              Fase de Grupos (72 partidos)
+            </button>
+            <button
+              onClick={() => setResultsTab("knockout")}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all border ${
+                resultsTab === "knockout"
+                  ? "bg-brand text-white border-brand shadow-[0_0_12px_rgba(0,176,107,0.25)]"
+                  : "bg-panel text-content-muted border-line hover:text-content"
+              }`}
+            >
+              Fase de Eliminatorias (32 partidos)
+            </button>
+          </div>
+
           {/* Match List */}
           <div className="glass-panel p-6 space-y-6">
             <div className="flex items-center justify-between border-b border-line pb-4">
-              <h2 className="text-xl font-bold text-content">Partidos Oficiales (Cronológico)</h2>
+              <h2 className="text-xl font-bold text-content">
+                {resultsTab === "groups" ? "Partidos de Grupo Oficiales" : "Partidos de Eliminatorias Oficiales"}
+              </h2>
               <span className="text-sm text-content-muted">Guarda uno por uno</span>
             </div>
 
             <div className="flex flex-col gap-4">
-              {CHRONOLOGICAL_MATCHES.map((match) => {
-                const home = TEAMS[match.homeTeam];
-                const away = TEAMS[match.awayTeam];
-                const prediction = results[match.id];
-                const isSaved = savedMatches[match.id];
-                const isLoading = loadingMatches[match.id];
+              {(() => {
+                const matchesToRender = resultsTab === "groups" ? CHRONOLOGICAL_MATCHES : ALL_KNOCKOUT_MATCHES;
+                return matchesToRender.map((match) => {
+                  const isKnockout = match.id.startsWith("M");
+                  const homeCode = isKnockout ? officialBracket[match.id]?.home : (match as any).homeTeam;
+                  const awayCode = isKnockout ? officialBracket[match.id]?.away : (match as any).awayTeam;
 
-                return (
-                  <div key={match.id} className="bg-card border border-line rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
-                    
-                    <div className="flex items-center justify-between w-full md:w-auto flex-1">
-                      <span className="text-xs font-bold text-content-muted w-10 shrink-0">{match.id}</span>
-                      {/* Home */}
-                      <div className="flex items-center gap-2 flex-1 justify-end">
-                        <span className="font-medium text-content text-sm text-right truncate">
-                          {home.name}
-                        </span>
-                        <Flag iso2={home.iso2} name={home.name} size="md" />
+                  const home = homeCode ? TEAMS[homeCode] : null;
+                  const away = awayCode ? TEAMS[awayCode] : null;
+                  const hasBothTeams = !!home && !!away;
+
+                  const prediction = results[match.id];
+                  const isSaved = savedMatches[match.id];
+                  const isLoading = loadingMatches[match.id];
+
+                  return (
+                    <div key={match.id} className="bg-card border border-line rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 animate-in fade-in duration-200">
+                      
+                      <div className="flex items-center justify-between w-full md:w-auto flex-1">
+                        <span className="text-xs font-bold text-content-muted w-10 shrink-0">{match.id}</span>
+                        
+                        {/* Home */}
+                        <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
+                          {home ? (
+                            <>
+                              <span className="font-semibold text-content text-sm text-right truncate">
+                                {home.name}
+                              </span>
+                              <Flag iso2={home.iso2} name={home.name} size="md" />
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-xs text-content-muted">Por definir</span>
+                              <span className="w-6 h-4 bg-line/30 rounded shrink-0"></span>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Inputs */}
+                        <div className="flex items-center gap-2 px-4 shrink-0">
+                          <input
+                            type="number"
+                            disabled={!hasBothTeams}
+                            value={prediction?.homeGoals ?? ""}
+                            onChange={(e) => handleUpdate(match.id, "home", e.target.value)}
+                            placeholder="-"
+                            className="w-10 h-10 bg-base border border-line rounded-lg text-center text-lg font-bold text-content focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all appearance-none disabled:opacity-30 disabled:cursor-not-allowed"
+                          />
+                          <span className="text-content-muted font-bold">:</span>
+                          <input
+                            type="number"
+                            disabled={!hasBothTeams}
+                            value={prediction?.awayGoals ?? ""}
+                            onChange={(e) => handleUpdate(match.id, "away", e.target.value)}
+                            placeholder="-"
+                            className="w-10 h-10 bg-base border border-line rounded-lg text-center text-lg font-bold text-content focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all appearance-none disabled:opacity-30 disabled:cursor-not-allowed"
+                          />
+                        </div>
+
+                        {/* Away */}
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {away ? (
+                            <>
+                              <Flag iso2={away.iso2} name={away.name} size="md" />
+                              <span className="font-semibold text-content text-sm truncate">
+                                {away.name}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="w-6 h-4 bg-line/30 rounded shrink-0"></span>
+                              <span className="text-xs text-content-muted font-medium">Por definir</span>
+                            </>
+                          )}
+                        </div>
                       </div>
 
-                      {/* Inputs */}
-                      <div className="flex items-center gap-2 px-4 shrink-0">
-                        <input
-                          type="number"
-                          value={prediction?.homeGoals ?? ""}
-                          onChange={(e) => handleUpdate(match.id, "home", e.target.value)}
-                          placeholder="-"
-                          className="w-10 h-10 bg-base border border-line rounded-lg text-center text-lg font-bold text-content focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all appearance-none"
-                        />
-                        <span className="text-content-muted font-bold">:</span>
-                        <input
-                          type="number"
-                          value={prediction?.awayGoals ?? ""}
-                          onChange={(e) => handleUpdate(match.id, "away", e.target.value)}
-                          placeholder="-"
-                          className="w-10 h-10 bg-base border border-line rounded-lg text-center text-lg font-bold text-content focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all appearance-none"
-                        />
-                      </div>
-
-                      {/* Away */}
-                      <div className="flex items-center gap-2 flex-1">
-                        <Flag iso2={away.iso2} name={away.name} size="md" />
-                        <span className="font-medium text-content text-sm truncate">
-                          {away.name}
-                        </span>
-                      </div>
+                      {/* Save Button for this specific match */}
+                      <button
+                        onClick={() => handleSaveMatch(match.id)}
+                        disabled={isLoading || !hasBothTeams || prediction?.homeGoals === undefined || prediction?.awayGoals === undefined}
+                        className={`shrink-0 flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-colors w-full md:w-32 ${
+                          isSaved 
+                            ? "bg-brand/10 text-brand border border-brand/30" 
+                            : "bg-red-500 hover:bg-red-600 text-white disabled:opacity-50 disabled:bg-panel disabled:text-content-muted disabled:border disabled:border-line"
+                        }`}
+                      >
+                        {isLoading ? (
+                          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                        ) : isSaved ? (
+                          <>Guardado ✓</>
+                        ) : (
+                          <>
+                            <Save size={16} /> Guardar
+                          </>
+                        )}
+                      </button>
                     </div>
-
-                    {/* Save Button for this specific match */}
-                    <button
-                      onClick={() => handleSaveMatch(match.id)}
-                      disabled={isLoading || prediction?.homeGoals === undefined || prediction?.awayGoals === undefined}
-                      className={`shrink-0 flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-colors w-full md:w-32 ${
-                        isSaved 
-                          ? "bg-brand/10 text-brand border border-brand/30" 
-                          : "bg-red-500 hover:bg-red-600 text-white disabled:opacity-50 disabled:bg-panel disabled:text-content-muted disabled:border disabled:border-line"
-                      }`}
-                    >
-                      {isLoading ? (
-                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                      ) : isSaved ? (
-                        <>Guardado ✓</>
-                      ) : (
-                        <>
-                          <Save size={16} /> Guardar
-                        </>
-                      )}
-                    </button>
-                  </div>
-                );
-              })}
+                  );
+                });
+              })()}
             </div>
           </div>
         </>
@@ -921,19 +1009,42 @@ export default function AdminPage() {
                                   const away = TEAMS[match.awayTeam];
                                   const pred = selectedUser.predictions[match.id];
                                   const official = results[match.id];
+                                  const isKnockout = match.id.startsWith("M");
+                                  let teamsMatch = true;
+                                  if (isKnockout) {
+                                    const uTeams = resolvedUserBracket[match.id];
+                                    const oTeams = officialBracket[match.id];
+                                    if (
+                                      !uTeams ||
+                                      !oTeams ||
+                                      !uTeams.home ||
+                                      !uTeams.away ||
+                                      uTeams.home !== oTeams.home ||
+                                      uTeams.away !== oTeams.away
+                                    ) {
+                                      teamsMatch = false;
+                                    }
+                                  }
+
                                   const scoring = (pred && official && pred.homeGoals !== null && pred.awayGoals !== null)
                                     ? getDetailedMatchScoring(pred.homeGoals, pred.awayGoals, official.homeGoals, official.awayGoals)
                                     : null;
+
+                                  if (scoring && isKnockout && !teamsMatch) {
+                                    scoring.points = 0;
+                                  }
                                   
                                   const pointsColor = scoring
-                                    ? scoring.isExactScore ? "text-emerald-400 bg-emerald-500/20 border-emerald-500/40"
+                                    ? isKnockout && !teamsMatch ? "text-red-400 bg-red-500/15 border-red-500/30"
+                                    : scoring.isExactScore ? "text-emerald-400 bg-emerald-500/20 border-emerald-500/40"
                                     : scoring.isWinnerGuessed || scoring.isTieGuessed ? "text-green-400 bg-green-500/15 border-green-500/30"
                                     : scoring.isConsolation ? "text-yellow-400 bg-yellow-500/15 border-yellow-500/30"
                                     : "text-red-400 bg-red-500/15 border-red-500/30"
                                     : null;
                                   
                                   const pointsLabel = scoring
-                                    ? scoring.isExactScore ? "Exacto"
+                                    ? isKnockout && !teamsMatch ? "No Clasificó"
+                                    : scoring.isExactScore ? "Exacto"
                                     : scoring.isWinnerGuessed ? "Ganador"
                                     : scoring.isTieGuessed ? "Empate"
                                     : scoring.isConsolation ? "Cercano"

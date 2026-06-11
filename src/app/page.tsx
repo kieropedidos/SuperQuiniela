@@ -14,7 +14,7 @@ import {
   getGroupMatches,
   calculateGroupStandings,
 } from "@/lib/worldCupData";
-import { calculateMatchPoints, getDetailedMatchScoring, calculateTournamentBonuses } from "@/scoringEngine";
+import { calculateMatchPoints, getDetailedMatchScoring, calculateTournamentBonuses, calculateUserPoints } from "@/scoringEngine";
 import KnockoutBracket from "@/components/predictions/KnockoutBracket";
 import GroupStandings from "@/components/predictions/GroupStandings";
 import Flag from "@/components/ui/Flag";
@@ -175,28 +175,13 @@ export default function PronosticosPage() {
              }
           }
 
-          // Calcular puntos de forma dinámica basándonos en los partidos oficiales reales ingresados
-          let calculatedPoints = 0;
-          officialMatches.forEach((om: any) => {
-             // Buscar la predicción para el partido en grupos o eliminatorias
-             const pred = row.predictions[om.match_id] || row.knockout_predictions[om.match_id];
-             if (pred && pred.homeGoals !== null && pred.awayGoals !== null) {
-                calculatedPoints += calculateMatchPoints(
-                   pred.homeGoals,
-                   pred.awayGoals,
-                   om.home_goals,
-                   om.away_goals
-                );
-             }
-          });
-
-          // Calcular puntos extra de bonificaciones del torneo
-          const bonuses = calculateTournamentBonuses(
-             row.predictions || {},
-             row.knockout_predictions || {},
-             officialMatches
+          // Calcular puntos de forma dinámica usando el motor de puntuación unificado
+          const scoring = calculateUserPoints(
+            row.predictions || {},
+            row.knockout_predictions || {},
+            officialMatches
           );
-          calculatedPoints += bonuses.total;
+          let calculatedPoints = scoring.totalPoints;
  
           return {
             id: row.user_id,

@@ -232,3 +232,93 @@ export function calculateTournamentBonuses(
     total: groupPoints + podioPoints,
   };
 }
+
+export interface UserPointsBreakdown {
+  matchPoints: number;
+  bonusPoints: number;
+  totalPoints: number;
+  exactScoresCount: number;
+}
+
+export function calculateUserPoints(
+  userPreds: Record<string, MatchPrediction>,
+  userKO: Record<string, MatchPrediction>,
+  officialMatches: any[]
+): UserPointsBreakdown {
+  const officialMatchesMap: Record<string, { home_goals: number; away_goals: number }> = {};
+  const officialGroupPreds: Record<string, MatchPrediction> = {};
+  const officialKOPreds: Record<string, MatchPrediction> = {};
+
+  officialMatches.forEach((om) => {
+    officialMatchesMap[om.match_id] = { home_goals: om.home_goals, away_goals: om.away_goals };
+    if (om.match_id.startsWith("M")) {
+      officialKOPreds[om.match_id] = {
+        matchId: om.match_id,
+        homeGoals: om.home_goals,
+        awayGoals: om.away_goals,
+      };
+    } else {
+      officialGroupPreds[om.match_id] = {
+        matchId: om.match_id,
+        homeGoals: om.home_goals,
+        awayGoals: om.away_goals,
+      };
+    }
+  });
+
+  const userGroupResults = getGroupResults(userPreds);
+  const userBracket = resolveKnockoutBracket(userGroupResults, userKO);
+
+  const officialGroupResults = getGroupResults(officialGroupPreds);
+  const officialBracket = resolveKnockoutBracket(officialGroupResults, officialKOPreds);
+
+  let matchPoints = 0;
+  let exactScoresCount = 0;
+
+  officialMatches.forEach((om) => {
+    const isKnockout = om.match_id.startsWith("M");
+    const pred = isKnockout ? userKO[om.match_id] : userPreds[om.match_id];
+
+    if (pred && pred.homeGoals !== null && pred.awayGoals !== null) {
+      let teamsMatch = true;
+
+      if (isKnockout) {
+        const uTeams = userBracket[om.match_id];
+        const oTeams = officialBracket[om.match_id];
+        if (
+          !uTeams ||
+          !oTeams ||
+          !uTeams.home ||
+          !uTeams.away ||
+          uTeams.home !== oTeams.home ||
+          uTeams.away !== oTeams.away
+        ) {
+          teamsMatch = false;
+        }
+      }
+
+      if (teamsMatch) {
+        const pts = calculateMatchPoints(
+          pred.homeGoals,
+          pred.awayGoals,
+          om.home_goals,
+          om.away_goals
+        );
+        matchPoints += pts;
+
+        if (pred.homeGoals === om.home_goals && pred.awayGoals === om.away_goals) {
+          exactScoresCount++;
+        }
+      }
+    }
+  });
+
+  const bonuses = calculateTournamentBonuses(userPreds, userKO, officialMatches);
+
+  return {
+    matchPoints,
+    bonusPoints: bonuses.total,
+    totalPoints: matchPoints + bonuses.total,
+    exactScoresCount,
+  };
+}

@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { Search, Trophy, Medal, EyeOff } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { calculateMatchPoints, calculateTournamentBonuses } from "@/scoringEngine";
+import { calculateUserPoints } from "@/scoringEngine";
 import { ALL_GROUP_MATCHES, ALL_KNOCKOUT_MATCHES } from "@/lib/worldCupData";
 
 interface UserRankData {
@@ -111,43 +111,19 @@ export default function LeaderboardPage() {
 
         const officialMatches = officialMatchesData || [];
 
-        // 4. Calcular puntos y cantidad de marcadores exactos en tiempo real
+        // 4. Calcular puntos y cantidad de marcadores exactos en tiempo real usando el motor unificado
         const calculated: UserRankData[] = (quinielasData || []).map((row: any) => {
-          let points = 0;
-          let exactScores = 0;
-
-          officialMatches.forEach((om: any) => {
-            const pred = row.predictions[om.match_id] || row.knockout_predictions[om.match_id];
-            if (pred && pred.homeGoals !== null && pred.awayGoals !== null) {
-              // Calcular puntos
-              const pts = calculateMatchPoints(
-                pred.homeGoals,
-                pred.awayGoals,
-                om.home_goals,
-                om.away_goals
-              );
-              points += pts;
-
-              // Contar aciertos exactos (goles idénticos de ambos lados)
-              if (pred.homeGoals === om.home_goals && pred.awayGoals === om.away_goals) {
-                exactScores += 1;
-              }
-            }
-          });
-
-          // Calcular puntos extra de bonificaciones del torneo
-          const bonuses = calculateTournamentBonuses(
+          const scoring = calculateUserPoints(
             row.predictions || {},
             row.knockout_predictions || {},
             officialMatches
           );
-          points += bonuses.total;
 
           return {
             id: row.user_id,
             username: row.profiles?.username || "Usuario",
-            points,
-            exactScores,
+            points: scoring.totalPoints,
+            exactScores: scoring.exactScoresCount,
           };
         });
 
