@@ -250,6 +250,7 @@ interface KnockoutBracketProps {
   onUpdate?: (matchId: string, side: "home" | "away", value: string) => void;
   officialMatchesMap?: Record<string, { homeGoals: number; awayGoals: number }>;
   officialResolved?: Record<string, { home: string; away: string }>;
+  showLockWarning?: boolean;
 }
 
 export default function KnockoutBracket({
@@ -260,6 +261,7 @@ export default function KnockoutBracket({
   onUpdate,
   officialMatchesMap,
   officialResolved,
+  showLockWarning = false,
 }: KnockoutBracketProps) {
   const [activeMobileRound, setActiveMobileRound] = useState<string>("R32");
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -550,7 +552,7 @@ export default function KnockoutBracket({
 
   return (
     <>
-      {readOnly && (
+      {showLockWarning && (
         <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-4 mb-6 text-xs leading-relaxed flex items-center gap-3 animate-in fade-in duration-300">
           <span className="text-red-500 text-lg">🔒</span>
           <div className="text-content">

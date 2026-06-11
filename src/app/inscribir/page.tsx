@@ -779,6 +779,7 @@ export default function InscribirPage() {
             predictions={knockoutPredictions}
             readOnly={blockEditsKnockout}
             onUpdate={updateKnockoutPrediction}
+            showLockWarning={blockEditsKnockout}
           />
 
           {/* Navigation */}
