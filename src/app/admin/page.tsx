@@ -79,6 +79,7 @@ export default function AdminPage() {
     knockoutFilledCount: number;
     alias_name?: string;
     has_paid?: boolean;
+    allow_edit?: boolean;
   }
 
   const [pendingQuinielas, setPendingQuinielas] = useState<PendingQuiniela[]>([]);
@@ -103,6 +104,7 @@ export default function AdminPage() {
         created_at,
         alias_name,
         has_paid,
+        allow_edit,
         profiles (username)
       `)
       .order("created_at", { ascending: false });
@@ -157,6 +159,7 @@ export default function AdminPage() {
         knockoutFilledCount,
         alias_name: row.alias_name || "",
         has_paid: !!row.has_paid,
+        allow_edit: !!row.allow_edit,
       };
     });
 
@@ -264,6 +267,24 @@ export default function AdminPage() {
     } else {
       const updateState = (list: PendingQuiniela[]) =>
         list.map((q) => (q.id === quinielaId ? { ...q, has_paid: newStatus } : q));
+      setPendingQuinielas(updateState);
+      setApprovedQuinielas(updateState);
+      setDraftQuinielas(updateState);
+    }
+  };
+
+  const handleToggleAllowEdit = async (quinielaId: string, currentStatus: boolean) => {
+    const newStatus = !currentStatus;
+    const { error } = await supabase
+      .from("user_quinielas")
+      .update({ allow_edit: newStatus })
+      .eq("id", quinielaId);
+
+    if (error) {
+      alert("Error al actualizar permiso de edición: " + error.message);
+    } else {
+      const updateState = (list: PendingQuiniela[]) =>
+        list.map((q) => (q.id === quinielaId ? { ...q, allow_edit: newStatus } : q));
       setPendingQuinielas(updateState);
       setApprovedQuinielas(updateState);
       setDraftQuinielas(updateState);
@@ -829,6 +850,17 @@ export default function AdminPage() {
 
                       <div className="flex items-center gap-3 w-full md:w-auto">
                         <button
+                          onClick={() => handleToggleAllowEdit(q.id, !!q.allow_edit)}
+                          className={`flex items-center gap-1.5 px-3 py-2.5 rounded-lg border font-bold text-xs transition-all cursor-pointer shrink-0 ${
+                            q.allow_edit
+                              ? "bg-purple-500/15 hover:bg-purple-500/25 text-purple-400 border-purple-500/35 shadow-[0_0_8px_rgba(168,85,247,0.15)]"
+                              : "bg-panel hover:bg-card text-content-muted border-line"
+                          }`}
+                          title={q.allow_edit ? "Deshabilitar Edición Excepcional" : "Habilitar Edición Excepcional"}
+                        >
+                          <span>{q.allow_edit ? "🔓 Edición Habilitada" : "🔒 Habilitar Edición"}</span>
+                        </button>
+                        <button
                           onClick={() => handleTogglePaid(q.id, !!q.has_paid)}
                           className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg border font-bold text-xs transition-all cursor-pointer shrink-0 ${
                             q.has_paid
@@ -944,6 +976,17 @@ export default function AdminPage() {
                       </div>
                       <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                         <button
+                          onClick={() => handleToggleAllowEdit(q.id, !!q.allow_edit)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-bold text-xs transition-all cursor-pointer shrink-0 ${
+                            q.allow_edit
+                              ? "bg-purple-500/15 hover:bg-purple-500/25 text-purple-400 border-purple-500/35 shadow-[0_0_8px_rgba(168,85,247,0.15)]"
+                              : "bg-panel hover:bg-card text-content-muted border-line"
+                          }`}
+                          title={q.allow_edit ? "Deshabilitar Edición Excepcional" : "Habilitar Edición Excepcional"}
+                        >
+                          <span>{q.allow_edit ? "🔓 Edición Habilitada" : "🔒 Habilitar Edición"}</span>
+                        </button>
+                        <button
                           onClick={() => handleTogglePaid(q.id, !!q.has_paid)}
                           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-bold text-xs transition-all cursor-pointer ${
                             q.has_paid
@@ -1046,6 +1089,17 @@ export default function AdminPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                        <button
+                          onClick={() => handleToggleAllowEdit(q.id, !!q.allow_edit)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-bold text-xs transition-all cursor-pointer shrink-0 ${
+                            q.allow_edit
+                              ? "bg-purple-500/15 hover:bg-purple-500/25 text-purple-400 border-purple-500/35 shadow-[0_0_8px_rgba(168,85,247,0.15)]"
+                              : "bg-panel hover:bg-card text-content-muted border-line"
+                          }`}
+                          title={q.allow_edit ? "Deshabilitar Edición Excepcional" : "Habilitar Edición Excepcional"}
+                        >
+                          <span>{q.allow_edit ? "🔓 Edición Habilitada" : "🔒 Habilitar Edición"}</span>
+                        </button>
                         <button
                           onClick={() => handleTogglePaid(q.id, !!q.has_paid)}
                           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-bold text-xs transition-all cursor-pointer ${

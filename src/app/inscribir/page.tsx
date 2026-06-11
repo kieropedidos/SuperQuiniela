@@ -48,6 +48,7 @@ export default function InscribirPage() {
   const [blockEdits, setBlockEdits] = useState(false);
   const [blockEditsKnockout, setBlockEditsKnockout] = useState(false);
   const [originalStatus, setOriginalStatus] = useState<string | null>(null);
+  const [allowEdit, setAllowEdit] = useState(false);
 
   // Verificar si ya tiene quiniela inscrita y su estado de aprobación
   useEffect(() => {
@@ -73,9 +74,6 @@ export default function InscribirPage() {
           isRegBlocked = !!regSetting?.value?.enabled;
           isEditsBlocked = !!editSetting?.value?.enabled;
           isEditsKnockoutBlocked = !!editKnockoutSetting?.value?.enabled;
-          setBlockRegistrations(isRegBlocked);
-          setBlockEdits(isEditsBlocked);
-          setBlockEditsKnockout(isEditsKnockoutBlocked);
         }
       } catch (err) {
         console.error("Error al cargar configuraciones de bloqueo:", err);
@@ -83,10 +81,27 @@ export default function InscribirPage() {
 
       const { data } = await supabase
         .from("user_quinielas")
-        .select("id, status, predictions, knockout_predictions")
+        .select("id, status, predictions, knockout_predictions, allow_edit")
         .eq("user_id", session.user.id)
         .maybeSingle();
         
+      const userAllowEdit = data ? !!data.allow_edit : false;
+      setAllowEdit(userAllowEdit);
+
+      if (userAllowEdit) {
+        setBlockRegistrations(false);
+        setBlockEdits(false);
+        setBlockEditsKnockout(false);
+      } else {
+        setBlockRegistrations(isRegBlocked);
+        setBlockEdits(isEditsBlocked);
+        setBlockEditsKnockout(isEditsKnockoutBlocked);
+      }
+
+      const finalRegBlocked = userAllowEdit ? false : isRegBlocked;
+      const finalEditsBlocked = userAllowEdit ? false : isEditsBlocked;
+      const finalEditsKnockoutBlocked = userAllowEdit ? false : isEditsKnockoutBlocked;
+
       if (data) {
         // Guardar estado original
         setOriginalStatus(data.status);
@@ -117,7 +132,7 @@ export default function InscribirPage() {
 
         if (effectiveStatus === "draft") {
           // Si es borrador, pero las inscripciones están cerradas
-          if (isRegBlocked) {
+          if (finalRegBlocked) {
             setRegistrationStatus("registrations_closed");
           } else {
             if (data.predictions) {
@@ -141,7 +156,7 @@ export default function InscribirPage() {
           }
         } else {
           // Si ya está inscrita (pending o approved)
-          if (isEditsBlocked && isEditsKnockoutBlocked) {
+          if (finalEditsBlocked && finalEditsKnockoutBlocked) {
             // Ediciones cerradas por completo: mostramos pantalla de bloqueo según corresponda
             setRegistrationStatus(data.status === "approved" ? "approved" : "pending");
           } else {
@@ -157,7 +172,7 @@ export default function InscribirPage() {
         }
       } else {
         // No tiene quiniela aún
-        if (isRegBlocked) {
+        if (finalRegBlocked) {
           setRegistrationStatus("registrations_closed");
         } else {
           setRegistrationStatus("none");
@@ -333,7 +348,7 @@ export default function InscribirPage() {
 
       const isEditing = originalStatus !== null && originalStatus !== "draft";
 
-      if (!isEditing && isRegBlocked) {
+      if (!isEditing && isRegBlocked && !allowEdit) {
         alert("❌ Las inscripciones de nuevas quinielas han sido cerradas por el administrador.");
         setIsSavingDraft(false);
         return;
@@ -398,12 +413,12 @@ export default function InscribirPage() {
 
       const isEditing = originalStatus !== null && originalStatus !== "draft";
 
-      if (isEditing && isEditsBlocked && isEditsKnockoutBlocked) {
+      if (isEditing && isEditsBlocked && isEditsKnockoutBlocked && !allowEdit) {
         alert("❌ Las modificaciones a las quinielas han sido cerradas por el administrador.");
         setIsSaving(false);
         return;
       }
-      if (!isEditing && isRegBlocked) {
+      if (!isEditing && isRegBlocked && !allowEdit) {
         alert("❌ Las inscripciones de nuevas quinielas han sido cerradas por el administrador.");
         setIsSaving(false);
         return;
