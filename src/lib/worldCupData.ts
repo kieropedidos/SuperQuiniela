@@ -362,36 +362,36 @@ export function assignThirdPlaceTeams(
 
 // Estructura fija del bracket FIFA 2026
 export const R32_MATCHES: KnockoutMatch[] = [
-  // Lado A del bracket
-  { id: "M73", round: "R32", homeSlot: "2A", awaySlot: "2B" },
+  // Lado Izquierdo (Mitad Superior) del bracket, de arriba a abajo
   { id: "M74", round: "R32", homeSlot: "1E", awaySlot: "3RD" }, // 3rd place
-  { id: "M75", round: "R32", homeSlot: "1F", awaySlot: "2C" },
-  { id: "M76", round: "R32", homeSlot: "1C", awaySlot: "2F" },
   { id: "M77", round: "R32", homeSlot: "1I", awaySlot: "3RD" }, // 3rd place
+  { id: "M73", round: "R32", homeSlot: "2A", awaySlot: "2B" },
+  { id: "M75", round: "R32", homeSlot: "1F", awaySlot: "2C" },
+  { id: "M83", round: "R32", homeSlot: "2K", awaySlot: "2L" },
+  { id: "M84", round: "R32", homeSlot: "1H", awaySlot: "2J" },
+  { id: "M81", round: "R32", homeSlot: "1D", awaySlot: "3RD" }, // 3rd place
+  { id: "M82", round: "R32", homeSlot: "1G", awaySlot: "3RD" }, // 3rd place
+  // Lado Derecho (Mitad Inferior) del bracket, de arriba a abajo
+  { id: "M76", round: "R32", homeSlot: "1C", awaySlot: "2F" },
   { id: "M78", round: "R32", homeSlot: "2E", awaySlot: "2I" },
   { id: "M79", round: "R32", homeSlot: "1A", awaySlot: "3RD" }, // 3rd place
   { id: "M80", round: "R32", homeSlot: "1L", awaySlot: "3RD" }, // 3rd place
-  // Lado B del bracket
-  { id: "M81", round: "R32", homeSlot: "1D", awaySlot: "3RD" }, // 3rd place
-  { id: "M82", round: "R32", homeSlot: "1G", awaySlot: "3RD" }, // 3rd place
-  { id: "M83", round: "R32", homeSlot: "2K", awaySlot: "2L" },
-  { id: "M84", round: "R32", homeSlot: "1H", awaySlot: "2J" },
-  { id: "M85", round: "R32", homeSlot: "1B", awaySlot: "3RD" }, // 3rd place
   { id: "M86", round: "R32", homeSlot: "1J", awaySlot: "2H" },
-  { id: "M87", round: "R32", homeSlot: "1K", awaySlot: "3RD" }, // 3rd place
   { id: "M88", round: "R32", homeSlot: "2D", awaySlot: "2G" },
+  { id: "M85", round: "R32", homeSlot: "1B", awaySlot: "3RD" }, // 3rd place
+  { id: "M87", round: "R32", homeSlot: "1K", awaySlot: "3RD" }, // 3rd place
 ];
 
 // Ronda de 16 (ganadores de R32)
 export const R16_MATCHES: KnockoutMatch[] = [
-  { id: "M89", round: "R16", homeSlot: "W_M73", awaySlot: "W_M74" },
-  { id: "M90", round: "R16", homeSlot: "W_M75", awaySlot: "W_M76" },
-  { id: "M91", round: "R16", homeSlot: "W_M77", awaySlot: "W_M78" },
-  { id: "M92", round: "R16", homeSlot: "W_M79", awaySlot: "W_M80" },
-  { id: "M93", round: "R16", homeSlot: "W_M81", awaySlot: "W_M82" },
-  { id: "M94", round: "R16", homeSlot: "W_M83", awaySlot: "W_M84" },
-  { id: "M95", round: "R16", homeSlot: "W_M85", awaySlot: "W_M86" },
-  { id: "M96", round: "R16", homeSlot: "W_M87", awaySlot: "W_M88" },
+  { id: "M89", round: "R16", homeSlot: "W_M74", awaySlot: "W_M77" },
+  { id: "M90", round: "R16", homeSlot: "W_M73", awaySlot: "W_M75" },
+  { id: "M91", round: "R16", homeSlot: "W_M83", awaySlot: "W_M84" },
+  { id: "M92", round: "R16", homeSlot: "W_M81", awaySlot: "W_M82" },
+  { id: "M93", round: "R16", homeSlot: "W_M76", awaySlot: "W_M78" },
+  { id: "M94", round: "R16", homeSlot: "W_M79", awaySlot: "W_M80" },
+  { id: "M95", round: "R16", homeSlot: "W_M86", awaySlot: "W_M88" },
+  { id: "M96", round: "R16", homeSlot: "W_M85", awaySlot: "W_M87" },
 ];
 
 // Cuartos de Final
