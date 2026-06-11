@@ -255,7 +255,7 @@ interface KnockoutBracketProps {
 export default function KnockoutBracket({
   matches,
   resolvedBracket,
-  predictions,
+  predictions = {},
   readOnly = false,
   onUpdate,
   officialMatchesMap,
@@ -316,6 +316,50 @@ export default function KnockoutBracket({
 
   const isFinalMatchCompleted = officialMatchesMap?.["M104"] !== undefined;
   const is3rdMatchCompleted = officialMatchesMap?.["M103"] !== undefined;
+
+  // --- CALCULO DE PUNTOS DE ELIMINATORIAS ---
+  let knockoutMatchPoints = 0;
+  let knockoutMatchesCount = 0;
+  matches.forEach((m) => {
+    const pred = predictions[m.id];
+    const official = officialMatchesMap?.[m.id];
+    if (pred && pred.homeGoals !== null && pred.awayGoals !== null && official) {
+      const pts = calculateMatchPoints(
+        pred.homeGoals,
+        pred.awayGoals,
+        official.homeGoals,
+        official.awayGoals
+      );
+      knockoutMatchPoints += pts;
+      knockoutMatchesCount++;
+    }
+  });
+
+  let podiumPoints = 0;
+  let podiumHitsCount = 0;
+  if (isFinalMatchCompleted) {
+    if (userPodium.champion && officialPodium.champion && userPodium.champion === officialPodium.champion) {
+      podiumPoints += 5;
+      podiumHitsCount++;
+    }
+    if (userPodium.runnerUp && officialPodium.runnerUp && userPodium.runnerUp === officialPodium.runnerUp) {
+      podiumPoints += 5;
+      podiumHitsCount++;
+    }
+  }
+  if (is3rdMatchCompleted) {
+    if (userPodium.third && officialPodium.third && userPodium.third === officialPodium.third) {
+      podiumPoints += 5;
+      podiumHitsCount++;
+    }
+    if (userPodium.fourth && officialPodium.fourth && userPodium.fourth === officialPodium.fourth) {
+      podiumPoints += 5;
+      podiumHitsCount++;
+    }
+  }
+
+  const totalKnockoutPoints = knockoutMatchPoints + podiumPoints;
+
 
   const renderPodiumCard = (
     title: string,
@@ -762,49 +806,78 @@ export default function KnockoutBracket({
           {/* Gradiente de desplazamiento horizontal para pestañas en móvil */}
           <div className="absolute right-0 top-0 bottom-3 w-8 pointer-events-none bg-gradient-to-l from-base to-transparent"></div>
         </div>
-        {/* Podio Final (Suma +5 puntos por acierto) */}
-        <div className="border-t border-line/30 pt-8 mt-12 mb-4">
-          <h3 className="text-sm font-extrabold uppercase tracking-widest text-brand text-center mb-6 flex items-center justify-center gap-2">
-            <span>🏆</span> Podio Final Pronosticado <span>🏆</span>
-          </h3>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-4xl mx-auto">
-            {/* Campeón */}
-            {renderPodiumCard(
-              "Campeón",
-              "🏆",
-              userPodium.champion,
-              officialPodium.champion,
-              isFinalMatchCompleted
-            )}
-            
-            {/* Subcampeón */}
-            {renderPodiumCard(
-              "Subcampeón",
-              "🥈",
-              userPodium.runnerUp,
-              officialPodium.runnerUp,
-              isFinalMatchCompleted
-            )}
+      </div>
 
-            {/* 3er Lugar */}
-            {renderPodiumCard(
-              "3er Lugar",
-              "🥉",
-              userPodium.third,
-              officialPodium.third,
-              is3rdMatchCompleted
-            )}
-
-            {/* 4to Lugar */}
-            {renderPodiumCard(
-              "4to Lugar",
-              "🎗️",
-              userPodium.fourth,
-              officialPodium.fourth,
-              is3rdMatchCompleted
-            )}
+      {/* Resumen de Puntos de Eliminatorias */}
+      {officialMatchesMap && Object.keys(officialMatchesMap).length > 0 && (
+        <div className="mt-8 max-w-4xl mx-auto bg-panel/30 border border-brand/20 rounded-xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div>
+            <h4 className="text-sm font-bold text-content uppercase tracking-wider mb-1">
+              📊 Resumen de Puntos de Eliminatorias
+            </h4>
+            <p className="text-xs text-content-muted">
+              Puntos acumulados en la fase de eliminatorias (Partidos + Podio Final).
+            </p>
           </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="text-center px-4 py-2 bg-base/50 rounded-lg border border-line min-w-[100px]">
+              <span className="block text-[10px] uppercase font-bold text-content-muted">Partidos ({knockoutMatchesCount})</span>
+              <span className="text-sm font-bold text-brand">+{knockoutMatchPoints} pts</span>
+            </div>
+            <div className="text-center px-4 py-2 bg-base/50 rounded-lg border border-line min-w-[100px]">
+              <span className="block text-[10px] uppercase font-bold text-content-muted">Podio Final ({podiumHitsCount}/4)</span>
+              <span className="text-sm font-bold text-brand">+{podiumPoints} pts</span>
+            </div>
+            <div className="text-center px-5 py-2.5 bg-brand/10 rounded-lg border border-brand/40 shadow-[0_0_15px_rgba(0,176,107,0.1)] min-w-[120px]">
+              <span className="block text-[10px] uppercase font-bold text-brand/90 font-extrabold">Total Eliminatorias</span>
+              <span className="text-lg font-extrabold text-brand">+{totalKnockoutPoints} pts</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Podio Final (Suma +5 puntos por acierto) */}
+      <div className="border-t border-line/30 pt-8 mt-12 mb-4">
+        <h3 className="text-sm font-extrabold uppercase tracking-widest text-brand text-center mb-6 flex items-center justify-center gap-2">
+          <span>🏆</span> Podio Final Pronosticado <span>🏆</span>
+        </h3>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-4xl mx-auto">
+          {/* Campeón */}
+          {renderPodiumCard(
+            "Campeón",
+            "🏆",
+            userPodium.champion,
+            officialPodium.champion,
+            isFinalMatchCompleted
+          )}
+          
+          {/* Subcampeón */}
+          {renderPodiumCard(
+            "Subcampeón",
+            "🥈",
+            userPodium.runnerUp,
+            officialPodium.runnerUp,
+            isFinalMatchCompleted
+          )}
+
+          {/* 3er Lugar */}
+          {renderPodiumCard(
+            "3er Lugar",
+            "🥉",
+            userPodium.third,
+            officialPodium.third,
+            is3rdMatchCompleted
+          )}
+
+          {/* 4to Lugar */}
+          {renderPodiumCard(
+            "4to Lugar",
+            "🎗️",
+            userPodium.fourth,
+            officialPodium.fourth,
+            is3rdMatchCompleted
+          )}
         </div>
       </div>
     </>

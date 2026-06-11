@@ -828,13 +828,66 @@ export default function PronosticosPage() {
                   const groupMatches = getGroupMatches(groupKey);
                   const standings = calculateGroupStandings(groupKey, selectedUser.predictions);
 
+                  // Calcular puntos acumulados por grupo
+                  let groupMatchPoints = 0;
+                  let groupMatchesCount = 0;
+                  groupMatches.forEach((match) => {
+                    const pred = selectedUser.predictions[match.id];
+                    const official = officialMatchesMap[match.id];
+                    if (pred && official && pred.homeGoals !== null && pred.awayGoals !== null) {
+                      groupMatchPoints += calculateMatchPoints(
+                        pred.homeGoals,
+                        pred.awayGoals,
+                        official.home_goals,
+                        official.away_goals
+                      );
+                      groupMatchesCount++;
+                    }
+                  });
+
+                  let groupPosPoints = 0;
+                  const isGroupCompleted = groupMatches.every((m) => officialMatchesMap[m.id] !== undefined);
+                  if (isGroupCompleted) {
+                    const userGroupResults = getGroupResults(selectedUser.predictions);
+                    const officialGroupPreds: Record<string, MatchPrediction> = {};
+                    Object.entries(officialMatchesMap).forEach(([id, om]) => {
+                      officialGroupPreds[id] = { matchId: id, homeGoals: om.home_goals, awayGoals: om.away_goals };
+                    });
+                    const officialGroupResults = getGroupResults(officialGroupPreds);
+
+                    const u1 = userGroupResults[groupKey]?.first;
+                    const u2 = userGroupResults[groupKey]?.second;
+                    const u3 = userGroupResults[groupKey]?.third?.teamCode;
+
+                    const o1 = officialGroupResults[groupKey]?.first;
+                    const o2 = officialGroupResults[groupKey]?.second;
+                    const o3 = officialGroupResults[groupKey]?.third?.teamCode;
+
+                    if (u1 && o1 && u1 === o1) groupPosPoints += 3;
+                    if (u2 && o2 && u2 === o2) groupPosPoints += 3;
+                    if (u3 && o3 && u3 === o3) groupPosPoints += 3;
+                  }
+
+                  const totalGroupPoints = groupMatchPoints + groupPosPoints;
+
                   return (
                     <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                       {/* Partidos Pronosticados */}
                       <div className="lg:col-span-3 space-y-4">
-                        <h3 className="text-lg font-bold text-content mb-2">
-                          Partidos Grupo {groupKey}
-                        </h3>
+                        <div className="flex items-center justify-between gap-4 mb-2">
+                          <h3 className="text-lg font-bold text-content">
+                            Partidos Grupo {groupKey}
+                          </h3>
+                          {officialMatchesMap && Object.keys(officialMatchesMap).length > 0 && (
+                            <div className="flex items-center gap-1.5 bg-brand/15 border border-brand/30 px-3 py-1 rounded-xl text-brand text-xs font-bold shadow-sm animate-in fade-in duration-300">
+                              <span>Grupo {groupKey}:</span>
+                              <span className="text-sm font-extrabold">+{totalGroupPoints} pts</span>
+                              <span className="text-[10px] text-brand/80 font-normal hidden sm:inline">
+                                (Partidos: +{groupMatchPoints} pts | Tabla: +{groupPosPoints} pts)
+                              </span>
+                            </div>
+                          )}
+                        </div>
                         {[1, 2, 3].map((matchday) => (
                           <div key={matchday} className="space-y-3">
                             <p className="text-xs text-content-muted uppercase tracking-wider font-semibold mt-4 first:mt-0">
