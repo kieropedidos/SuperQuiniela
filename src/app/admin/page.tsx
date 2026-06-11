@@ -77,6 +77,8 @@ export default function AdminPage() {
     knockout_predictions: Record<string, MatchPrediction>;
     groupFilledCount: number;
     knockoutFilledCount: number;
+    alias_name?: string;
+    has_paid?: boolean;
   }
 
   const [pendingQuinielas, setPendingQuinielas] = useState<PendingQuiniela[]>([]);
@@ -99,6 +101,8 @@ export default function AdminPage() {
         predictions,
         knockout_predictions,
         created_at,
+        alias_name,
+        has_paid,
         profiles (username)
       `)
       .order("created_at", { ascending: false });
@@ -150,7 +154,9 @@ export default function AdminPage() {
         predictions: predsMap,
         knockout_predictions: koMap,
         groupFilledCount,
-        knockoutFilledCount
+        knockoutFilledCount,
+        alias_name: row.alias_name || "",
+        has_paid: !!row.has_paid,
       };
     });
 
@@ -227,6 +233,41 @@ export default function AdminPage() {
       await loadQuinielas();
     }
     setProcessingIds((prev) => ({ ...prev, [quinielaId]: false }));
+  };
+
+  const handleUpdateAlias = async (quinielaId: string, value: string) => {
+    const { error } = await supabase
+      .from("user_quinielas")
+      .update({ alias_name: value })
+      .eq("id", quinielaId);
+
+    if (error) {
+      alert("Error al actualizar identificador: " + error.message);
+    } else {
+      const updateState = (list: PendingQuiniela[]) =>
+        list.map((q) => (q.id === quinielaId ? { ...q, alias_name: value } : q));
+      setPendingQuinielas(updateState);
+      setApprovedQuinielas(updateState);
+      setDraftQuinielas(updateState);
+    }
+  };
+
+  const handleTogglePaid = async (quinielaId: string, currentStatus: boolean) => {
+    const newStatus = !currentStatus;
+    const { error } = await supabase
+      .from("user_quinielas")
+      .update({ has_paid: newStatus })
+      .eq("id", quinielaId);
+
+    if (error) {
+      alert("Error al actualizar estado de pago: " + error.message);
+    } else {
+      const updateState = (list: PendingQuiniela[]) =>
+        list.map((q) => (q.id === quinielaId ? { ...q, has_paid: newStatus } : q));
+      setPendingQuinielas(updateState);
+      setApprovedQuinielas(updateState);
+      setDraftQuinielas(updateState);
+    }
   };
 
   useEffect(() => {
@@ -727,23 +768,47 @@ export default function AdminPage() {
                             {q.username.charAt(0).toUpperCase()}
                           </span>
                         </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                             <h3 className="font-bold text-content text-lg truncate">{q.username}</h3>
+                            {q.alias_name && (
+                              <span className="text-xs bg-brand/10 border border-brand/20 px-2.5 py-0.5 rounded text-brand font-bold max-w-[200px] truncate" title={q.alias_name}>
+                                {q.alias_name}
+                              </span>
+                            )}
                             <button
                               onClick={() => {
                                 setSelectedUser(q);
                                 setModalTab("groups");
                                 setModalGroupIndex(0);
                               }}
-                              className="p-1 hover:bg-panel rounded text-content-muted hover:text-brand transition-colors"
+                              className="p-1 hover:bg-panel rounded text-content-muted hover:text-brand transition-colors self-start sm:self-auto"
                               title="Ver Predicciones"
                             >
                               <Eye size={16} />
                             </button>
                           </div>
                           <p className="text-xs text-content-muted">Registrada: {date}</p>
-                          <div className="flex items-center gap-3 mt-1.5">
+                          <div className="mt-2 flex items-center gap-2 max-w-[280px]">
+                            <span className="text-[10px] text-content-muted shrink-0 font-bold uppercase tracking-wider">Alias:</span>
+                            <input
+                              type="text"
+                              defaultValue={q.alias_name || ""}
+                              placeholder="Asignar nombre/alias..."
+                              onBlur={(e) => {
+                                if (e.target.value !== (q.alias_name || "")) {
+                                  handleUpdateAlias(q.id, e.target.value);
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.currentTarget.blur();
+                                }
+                              }}
+                              className="bg-base border border-line text-content text-xs rounded px-2 py-0.5 outline-none focus:border-brand/50 flex-1 transition-all"
+                            />
+                          </div>
+                          <div className="flex items-center gap-3 mt-2">
                             {champion && (
                               <span className="flex items-center gap-1 text-xs text-content-muted">
                                 <span className="text-content-muted">🏆</span>
@@ -763,6 +828,18 @@ export default function AdminPage() {
                       </div>
 
                       <div className="flex items-center gap-3 w-full md:w-auto">
+                        <button
+                          onClick={() => handleTogglePaid(q.id, !!q.has_paid)}
+                          className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg border font-bold text-xs transition-all cursor-pointer shrink-0 ${
+                            q.has_paid
+                              ? "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border-emerald-500/35"
+                              : "bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border-amber-500/25"
+                          }`}
+                          title={q.has_paid ? "Marcar como No Pagado" : "Marcar como Pagado"}
+                        >
+                          <span>💰</span>
+                          <span>{q.has_paid ? "Pagado" : "Pendiente"}</span>
+                        </button>
                         <button
                           onClick={() => handleApprove(q.id)}
                           disabled={isProcessing}
@@ -808,16 +885,21 @@ export default function AdminPage() {
                   const isProcessing = processingIds[q.id];
 
                   return (
-                    <div key={q.id} className="bg-card border border-line rounded-xl p-4 flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3 min-w-0">
+                    <div key={q.id} className="bg-card border border-line rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className="w-10 h-10 rounded-full bg-brand/20 flex items-center justify-center border border-brand/50 shrink-0">
                           <span className="text-brand font-bold text-sm">
                             {q.username.charAt(0).toUpperCase()}
                           </span>
                         </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
                             <h3 className="font-semibold text-content truncate">{q.username}</h3>
+                            {q.alias_name && (
+                              <span className="text-[10px] bg-brand/10 border border-brand/20 px-2 py-0.5 rounded text-brand font-bold max-w-[150px] truncate" title={q.alias_name}>
+                                {q.alias_name}
+                              </span>
+                            )}
                             <button
                               onClick={() => {
                                 setSelectedUser(q);
@@ -830,7 +912,26 @@ export default function AdminPage() {
                               <Eye size={14} />
                             </button>
                           </div>
-                          <div className="flex items-center gap-2 mt-0.5">
+                          <div className="mt-1 flex items-center gap-2 max-w-[250px]">
+                            <span className="text-[9px] text-content-muted shrink-0 font-bold uppercase tracking-wider">Alias:</span>
+                            <input
+                              type="text"
+                              defaultValue={q.alias_name || ""}
+                              placeholder="Asignar nombre/alias..."
+                              onBlur={(e) => {
+                                if (e.target.value !== (q.alias_name || "")) {
+                                  handleUpdateAlias(q.id, e.target.value);
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.currentTarget.blur();
+                                }
+                              }}
+                              className="bg-base border border-line text-content text-[11px] rounded px-2 py-0.5 outline-none focus:border-brand/50 flex-1 transition-all"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2 mt-1.5">
                             {champion && (
                               <span className="flex items-center gap-1 text-xs text-content-muted">
                                 🏆
@@ -841,7 +942,19 @@ export default function AdminPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                        <button
+                          onClick={() => handleTogglePaid(q.id, !!q.has_paid)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-bold text-xs transition-all cursor-pointer ${
+                            q.has_paid
+                              ? "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border-emerald-500/35"
+                              : "bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border-amber-500/25"
+                          }`}
+                          title={q.has_paid ? "Marcar como No Pagado" : "Marcar como Pagado"}
+                        >
+                          <span>💰</span>
+                          <span>{q.has_paid ? "Pagado" : "Pendiente"}</span>
+                        </button>
                         <span className="text-xs font-bold bg-brand/10 text-brand px-3 py-1 rounded-full hidden sm:inline">
                           ✓ Aprobada
                         </span>
@@ -880,16 +993,21 @@ export default function AdminPage() {
                   const isProcessing = processingIds[q.id];
 
                   return (
-                    <div key={q.id} className="bg-card border border-line/60 rounded-xl p-4 flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3 min-w-0">
+                    <div key={q.id} className="bg-card border border-line/60 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className="w-10 h-10 rounded-full bg-yellow-500/10 flex items-center justify-center border border-yellow-500/20 shrink-0">
                           <span className="text-yellow-500 font-bold text-sm">
                             {q.username.charAt(0).toUpperCase()}
                           </span>
                         </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
                             <h3 className="font-semibold text-content truncate">{q.username}</h3>
+                            {q.alias_name && (
+                              <span className="text-[10px] bg-brand/10 border border-brand/20 px-2 py-0.5 rounded text-brand font-bold max-w-[150px] truncate" title={q.alias_name}>
+                                {q.alias_name}
+                              </span>
+                            )}
                             <button
                               onClick={() => {
                                 setSelectedUser(q);
@@ -902,13 +1020,44 @@ export default function AdminPage() {
                               <Eye size={14} />
                             </button>
                           </div>
-                          <p className="text-xs text-content-muted mt-1">
+                          <div className="mt-1 flex items-center gap-2 max-w-[250px]">
+                            <span className="text-[9px] text-content-muted shrink-0 font-bold uppercase tracking-wider">Alias:</span>
+                            <input
+                              type="text"
+                              defaultValue={q.alias_name || ""}
+                              placeholder="Asignar nombre/alias..."
+                              onBlur={(e) => {
+                                if (e.target.value !== (q.alias_name || "")) {
+                                  handleUpdateAlias(q.id, e.target.value);
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.currentTarget.blur();
+                                }
+                              }}
+                              className="bg-base border border-line text-content text-[11px] rounded px-2 py-0.5 outline-none focus:border-brand/50 flex-1 transition-all"
+                            />
+                          </div>
+                          <p className="text-xs text-content-muted mt-1.5">
                             Grupos: <span className="font-bold text-content">{q.groupFilledCount}/72</span> | 
                             Eliminatorias: <span className="font-bold text-content">{q.knockoutFilledCount}/32</span>
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                        <button
+                          onClick={() => handleTogglePaid(q.id, !!q.has_paid)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-bold text-xs transition-all cursor-pointer ${
+                            q.has_paid
+                              ? "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border-emerald-500/35"
+                              : "bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border-amber-500/25"
+                          }`}
+                          title={q.has_paid ? "Marcar como No Pagado" : "Marcar como Pagado"}
+                        >
+                          <span>💰</span>
+                          <span>{q.has_paid ? "Pagado" : "Pendiente"}</span>
+                        </button>
                         <span className="text-xs font-bold bg-yellow-500/10 text-yellow-500 px-3 py-1 rounded-full">
                           Borrador
                         </span>
