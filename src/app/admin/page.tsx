@@ -1284,7 +1284,7 @@ export default function AdminPage() {
                       {/* Tabla de Posiciones Resultante */}
                       <div className="lg:col-span-2 space-y-4">
                         <h3 className="text-lg font-bold text-content">Tabla de Posiciones</h3>
-                        <GroupStandings standings={standings} groupName={groupKey} />
+                        <GroupStandings standings={standings} groupName={groupKey} officialMatchesMap={results} />
                       </div>
                     </div>
                   );
