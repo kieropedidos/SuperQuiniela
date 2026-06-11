@@ -1322,6 +1322,8 @@ export default function AdminPage() {
                     resolvedBracket={resolvedUserBracket}
                     predictions={selectedUser.knockout_predictions}
                     readOnly={true}
+                    officialMatchesMap={results}
+                    officialResolved={officialBracket}
                   />
                 </div>
               )}

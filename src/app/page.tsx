@@ -50,6 +50,29 @@ export default function PronosticosPage() {
   const [compareGroupFilter, setCompareGroupFilter] = useState<string>("all");
   const [officialMatchesMap, setOfficialMatchesMap] = useState<Record<string, { home_goals: number; away_goals: number }>>({});
 
+  // Preparar datos oficiales para el árbol de eliminatorias en modal
+  const officialMatchesMapForBracket = useMemo(() => {
+    const map: Record<string, { homeGoals: number; awayGoals: number }> = {};
+    Object.entries(officialMatchesMap).forEach(([id, val]) => {
+      map[id] = { homeGoals: val.home_goals, awayGoals: val.away_goals };
+    });
+    return map;
+  }, [officialMatchesMap]);
+
+  const officialResolved = useMemo(() => {
+    const officialGroupPreds: Record<string, MatchPrediction> = {};
+    const officialKOPreds: Record<string, MatchPrediction> = {};
+    Object.entries(officialMatchesMap).forEach(([id, om]) => {
+      if (id.startsWith("M")) {
+        officialKOPreds[id] = { matchId: id, homeGoals: om.home_goals, awayGoals: om.away_goals };
+      } else {
+        officialGroupPreds[id] = { matchId: id, homeGoals: om.home_goals, awayGoals: om.away_goals };
+      }
+    });
+    const officialGroupResults = getGroupResults(officialGroupPreds);
+    return resolveKnockoutBracket(officialGroupResults, officialKOPreds);
+  }, [officialMatchesMap]);
+
   // Control de visibilidad global
   const [quinielasVisible, setQuinielasVisible] = useState<boolean>(true);
   const [currentUsername, setCurrentUsername] = useState<string>("");
@@ -936,6 +959,8 @@ export default function PronosticosPage() {
                     resolvedBracket={resolvedUserBracket}
                     predictions={selectedUser.knockoutPredictions}
                     readOnly={true}
+                    officialMatchesMap={officialMatchesMapForBracket}
+                    officialResolved={officialResolved}
                   />
                 </div>
               )}

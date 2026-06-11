@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { TEAMS, KnockoutMatch, ROUND_NAMES, MatchPrediction } from "@/lib/worldCupData";
 import Flag from "@/components/ui/Flag";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { calculateMatchPoints, getDetailedMatchScoring } from "@/scoringEngine";
 
 // Función de utilidad para enfocar automáticamente el siguiente input en móvil
 const focusNextInput = (el: HTMLInputElement) => {
@@ -29,7 +30,7 @@ const R32_MATCH_DESCRIPTIONS: Record<string, string> = {
   M81: "1er Lugar Grupo D vs 3er Lugar Grupo B/E/F/I/J",
   M82: "1er Lugar Grupo G vs 3er Lugar Grupo A/E/H/I/J",
   M83: "2do Lugar Grupo K vs 2do Lugar Grupo L",
-  M84: "1er Lugar Grupo H vs 2do Lugar Grupo J",
+  M84: "1er Lugar H vs 2do Lugar Grupo J",
   M85: "1er Lugar Grupo B vs 3er Lugar Grupo E/F/G/I/J",
   M86: "1er Lugar Grupo J vs 2do Lugar Grupo H",
   M87: "1er Lugar Grupo K vs 3er Lugar Grupo D/E/I/J/L",
@@ -43,9 +44,20 @@ interface BracketMatchCardProps {
   prediction?: MatchPrediction;
   readOnly?: boolean;
   onUpdate?: (matchId: string, side: "home" | "away", value: string) => void;
+  officialMatchesMap?: Record<string, { homeGoals: number; awayGoals: number }>;
+  officialResolved?: Record<string, { home: string; away: string }>;
 }
 
-function BracketMatchCard({ match, homeCode, awayCode, prediction, readOnly, onUpdate }: BracketMatchCardProps) {
+function BracketMatchCard({ 
+  match, 
+  homeCode, 
+  awayCode, 
+  prediction, 
+  readOnly, 
+  onUpdate,
+  officialMatchesMap,
+  officialResolved
+}: BracketMatchCardProps) {
   const homeTeam = homeCode ? TEAMS[homeCode] : null;
   const awayTeam = awayCode ? TEAMS[awayCode] : null;
   const hasBothTeams = !!homeTeam && !!awayTeam;
@@ -57,6 +69,49 @@ function BracketMatchCard({ match, homeCode, awayCode, prediction, readOnly, onU
   const homeWins = hasResult && homeGoals > awayGoals;
   const awayWins = hasResult && awayGoals > homeGoals;
   const isTie = hasResult && homeGoals === awayGoals;
+
+  // Cargar resultado oficial y calcular puntos
+  const official = officialMatchesMap?.[match.id];
+  let pointsForThisMatch: number | null = null;
+  let pointsLabel = "";
+  let pointsColor = "";
+
+  if (prediction && prediction.homeGoals !== null && prediction.awayGoals !== null && official) {
+    const uTeams = { home: homeCode, away: awayCode };
+    const oTeams = officialResolved?.[match.id];
+    
+    // Check if user's resolved teams match the official resolved teams
+    const teamsMatch = !!uTeams && !!oTeams && uTeams.home === oTeams.home && uTeams.away === oTeams.away;
+    
+    if (!teamsMatch) {
+      pointsForThisMatch = 0;
+      pointsLabel = "No Clasificó";
+      pointsColor = "text-red-400 bg-red-500/15 border-red-500/30";
+    } else {
+      pointsForThisMatch = calculateMatchPoints(
+        prediction.homeGoals,
+        prediction.awayGoals,
+        official.homeGoals,
+        official.awayGoals
+      );
+      const scoring = getDetailedMatchScoring(
+        prediction.homeGoals,
+        prediction.awayGoals,
+        official.homeGoals,
+        official.awayGoals
+      );
+      pointsColor = scoring.isExactScore ? "text-emerald-400 bg-emerald-500/20 border-emerald-500/40"
+        : scoring.isWinnerGuessed || scoring.isTieGuessed ? "text-green-400 bg-green-500/15 border-green-500/30"
+        : scoring.isConsolation ? "text-yellow-400 bg-yellow-500/15 border-yellow-500/30"
+        : "text-red-400 bg-red-500/15 border-red-500/30";
+      
+      pointsLabel = scoring.isExactScore ? "Exacto"
+        : scoring.isWinnerGuessed ? "Ganador"
+        : scoring.isTieGuessed ? "Empate"
+        : scoring.isConsolation ? "Cercano"
+        : "Errado";
+    }
+  }
 
   return (
     <div className={`flex flex-col w-full lg:w-48 shrink-0 bg-card border rounded-lg overflow-hidden transition-all duration-300 ${
@@ -175,6 +230,23 @@ function BracketMatchCard({ match, homeCode, awayCode, prediction, readOnly, onU
           }`}
         />
       </div>
+
+      {/* Official Score & Points Footer */}
+      {official && (
+        <div className="flex items-center justify-between px-3 py-1.5 border-t border-line/40 bg-panel/35 text-[10px]">
+          <div className="flex items-center gap-1">
+            <span className="text-content-muted font-medium">Real:</span>
+            <span className="font-extrabold text-content bg-base px-1.5 py-0.5 rounded border border-line/60">
+              {official.homeGoals} - {official.awayGoals}
+            </span>
+          </div>
+          {pointsForThisMatch !== null && (
+            <span className={`px-1.5 py-0.5 rounded font-bold border ${pointsColor}`} title={pointsLabel}>
+              +{pointsForThisMatch} pts {pointsLabel === "No Clasificó" ? "(NC)" : ""}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -188,6 +260,8 @@ interface KnockoutBracketProps {
   predictions: Record<string, MatchPrediction>;
   readOnly?: boolean;
   onUpdate?: (matchId: string, side: "home" | "away", value: string) => void;
+  officialMatchesMap?: Record<string, { homeGoals: number; awayGoals: number }>;
+  officialResolved?: Record<string, { home: string; away: string }>;
 }
 
 export default function KnockoutBracket({
@@ -196,6 +270,8 @@ export default function KnockoutBracket({
   predictions,
   readOnly = false,
   onUpdate,
+  officialMatchesMap,
+  officialResolved,
 }: KnockoutBracketProps) {
   const [activeMobileRound, setActiveMobileRound] = useState<string>("R32");
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -249,6 +325,8 @@ export default function KnockoutBracket({
                 prediction={predictions[match.id]}
                 readOnly={readOnly}
                 onUpdate={onUpdate}
+                officialMatchesMap={officialMatchesMap}
+                officialResolved={officialResolved}
               />
             </div>
           );
@@ -445,6 +523,8 @@ export default function KnockoutBracket({
                 prediction={predictions[thirdPlaceMatch.id]}
                 readOnly={readOnly}
                 onUpdate={onUpdate}
+                officialMatchesMap={officialMatchesMap}
+                officialResolved={officialResolved}
               />
             </div>
           </div>
@@ -505,6 +585,8 @@ export default function KnockoutBracket({
                         prediction={predictions[match.id]}
                         readOnly={readOnly}
                         onUpdate={onUpdate}
+                        officialMatchesMap={officialMatchesMap}
+                        officialResolved={officialResolved}
                       />
                     );
                   })}
@@ -524,6 +606,8 @@ export default function KnockoutBracket({
                         prediction={predictions[thirdPlaceMatch.id]}
                         readOnly={readOnly}
                         onUpdate={onUpdate}
+                        officialMatchesMap={officialMatchesMap}
+                        officialResolved={officialResolved}
                       />
                     </div>
                   </div>
