@@ -46,6 +46,8 @@ export default function PronosticosPage() {
   const [modalGroupIndex, setModalGroupIndex] = useState(0);
   const [compareA, setCompareA] = useState<string>("");
   const [compareB, setCompareB] = useState<string>("");
+  const [compareTab, setCompareTab] = useState<"groups" | "knockout">("groups");
+  const [compareGroupFilter, setCompareGroupFilter] = useState<string>("all");
   const [officialMatchesMap, setOfficialMatchesMap] = useState<Record<string, { home_goals: number; away_goals: number }>>({});
 
   // Control de visibilidad global
@@ -435,54 +437,300 @@ export default function PronosticosPage() {
             </div>
           </div>
 
-          {/* Comparador de Partidos (Solo Fase de Grupos por ahora para demo) */}
+          {/* Comparador de Partidos (Grupos + Eliminatorias) */}
           <div className="glass-card overflow-hidden">
-            <div className="bg-panel px-6 py-4 border-b border-line flex justify-between items-center">
-              <h3 className="font-bold text-content">Partidos - Fase de Grupos</h3>
+            {/* Header con Pestañas y Filtro */}
+            <div className="bg-panel px-6 py-4 border-b border-line flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCompareTab("groups")}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all border ${
+                    compareTab === "groups"
+                      ? "bg-brand text-white border-brand shadow-[0_0_12px_rgba(0,176,107,0.25)]"
+                      : "bg-panel text-content-muted border-line hover:text-content"
+                  }`}
+                >
+                  Fase de Grupos (72 partidos)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCompareTab("knockout")}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all border ${
+                    compareTab === "knockout"
+                      ? "bg-brand text-white border-brand shadow-[0_0_12px_rgba(0,176,107,0.25)]"
+                      : "bg-panel text-content-muted border-line hover:text-content"
+                  }`}
+                >
+                  Fase de Eliminatorias (32 partidos)
+                </button>
+              </div>
+
+              {/* Filtro de Grupos (Solo si Fase de Grupos está activa) */}
+              {compareTab === "groups" && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-content-muted uppercase">Filtrar:</span>
+                  <select
+                    value={compareGroupFilter}
+                    onChange={(e) => setCompareGroupFilter(e.target.value)}
+                    className="bg-base border border-line rounded-lg px-3 py-1.5 text-xs text-content font-semibold focus:border-brand focus:ring-1 focus:ring-brand outline-none"
+                  >
+                    <option value="all">Todos los Grupos</option>
+                    {GROUP_NAMES.map((g) => (
+                      <option key={g} value={g}>
+                        Grupo {g}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
+
+            {/* Listado Comparativo */}
             <div className="divide-y divide-line/50">
-              {ALL_GROUP_MATCHES.slice(0, 10).map((match) => { // Mostramos solo 10 para demo
-                const home = TEAMS[match.homeTeam];
-                const away = TEAMS[match.awayTeam];
-                const userAPred = users.find(u => u.id === compareA)?.predictions[match.id];
-                const userBPred = users.find(u => u.id === compareB)?.predictions[match.id];
+              {(() => {
+                const userA = users.find((u) => u.id === compareA);
+                const userB = users.find((u) => u.id === compareB);
 
-                return (
-                  <div key={match.id} className="p-4 flex items-center justify-between hover:bg-panel/30 transition-colors">
-                    {/* Equipo Local */}
-                    <div className="flex items-center gap-3 w-1/4">
-                      <Flag iso2={home.iso2} name={home.name} size="md" />
-                      <span className="font-semibold text-content hidden md:block">{home.name}</span>
-                      <span className="font-semibold text-content md:hidden">{home.code}</span>
+                const userAGroupResults = userA ? getGroupResults(userA.predictions) : {};
+                const userBGroupResults = userB ? getGroupResults(userB.predictions) : {};
+                const userAResolved = userA ? resolveKnockoutBracket(userAGroupResults, userA.knockoutPredictions) : {};
+                const userBResolved = userB ? resolveKnockoutBracket(userBGroupResults, userB.knockoutPredictions) : {};
+
+                // Resolviendo el bracket oficial
+                const officialGroupPreds: Record<string, MatchPrediction> = {};
+                const officialKOPreds: Record<string, MatchPrediction> = {};
+                Object.entries(officialMatchesMap).forEach(([id, om]) => {
+                  if (id.startsWith("M")) {
+                    officialKOPreds[id] = { matchId: id, homeGoals: om.home_goals, awayGoals: om.away_goals };
+                  } else {
+                    officialGroupPreds[id] = { matchId: id, homeGoals: om.home_goals, awayGoals: om.away_goals };
+                  }
+                });
+                const officialGroupResults = getGroupResults(officialGroupPreds);
+                const officialResolved = resolveKnockoutBracket(officialGroupResults, officialKOPreds);
+
+                const getMatchPoints = (matchId: string, isKO: boolean, userPreds: Record<string, MatchPrediction> | undefined, userResolved: any) => {
+                  if (!userPreds) return 0;
+                  const pred = userPreds[matchId];
+                  const official = officialMatchesMap[matchId];
+                  if (!pred || pred.homeGoals === null || pred.awayGoals === null || !official) {
+                    return 0;
+                  }
+                  if (isKO) {
+                    const uTeams = userResolved[matchId];
+                    const oTeams = officialResolved[matchId];
+                    if (
+                      !uTeams ||
+                      !oTeams ||
+                      !uTeams.home ||
+                      !uTeams.away ||
+                      uTeams.home !== oTeams.home ||
+                      uTeams.away !== oTeams.away
+                    ) {
+                      return 0;
+                    }
+                  }
+                  return calculateMatchPoints(pred.homeGoals, pred.awayGoals, official.home_goals, official.away_goals);
+                };
+
+                const renderPointsBadge = (points: number, pred: MatchPrediction | undefined, official: any) => {
+                  if (!pred || pred.homeGoals === null || pred.awayGoals === null) {
+                    return <span className="text-[10px] text-content-muted bg-panel/30 border border-line/50 px-2 py-0.5 rounded-full font-medium">Sin pronosticar</span>;
+                  }
+                  if (!official) {
+                    return <span className="text-[10px] text-content-muted bg-panel/30 border border-line/50 px-2 py-0.5 rounded-full font-medium">Pendiente</span>;
+                  }
+                  
+                  const scoring = getDetailedMatchScoring(pred.homeGoals, pred.awayGoals, official.home_goals, official.away_goals);
+                  
+                  const pointsColor = scoring.isExactScore ? "text-emerald-400 bg-emerald-500/20 border-emerald-500/40"
+                    : scoring.isWinnerGuessed || scoring.isTieGuessed ? "text-green-400 bg-green-500/15 border-green-500/30"
+                    : scoring.isConsolation ? "text-yellow-400 bg-yellow-500/15 border-yellow-500/30"
+                    : "text-red-400 bg-red-500/15 border-red-500/30";
+                  
+                  const pointsLabel = scoring.isExactScore ? "Exacto"
+                    : scoring.isWinnerGuessed ? "Ganador"
+                    : scoring.isTieGuessed ? "Empate"
+                    : scoring.isConsolation ? "Cercano"
+                    : "Errado";
+
+                  return (
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${pointsColor} shrink-0`}>
+                      <span>+{points} pts</span>
+                      <span className="hidden sm:inline">·</span>
+                      <span className="hidden sm:inline">{pointsLabel}</span>
+                    </span>
+                  );
+                };
+
+                const renderDiffBadge = (ptsA: number, ptsB: number, official: any) => {
+                  if (!official) return null;
+                  const diff = ptsA - ptsB;
+                  if (diff > 0) {
+                    return (
+                      <span className="text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-lg shrink-0 flex items-center shadow-sm">
+                        <span>← +{diff}</span>
+                      </span>
+                    );
+                  }
+                  if (diff < 0) {
+                    return (
+                      <span className="text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-lg shrink-0 flex items-center shadow-sm">
+                        <span>+{Math.abs(diff)} →</span>
+                      </span>
+                    );
+                  }
+                  return (
+                    <span className="text-[10px] font-bold bg-panel text-content-muted border border-line px-2.5 py-1 rounded-lg shrink-0">
+                      0
+                    </span>
+                  );
+                };
+
+                const matchesToRender = compareTab === "groups"
+                  ? ALL_GROUP_MATCHES.filter((m) => compareGroupFilter === "all" || m.group === compareGroupFilter)
+                  : ALL_KNOCKOUT_MATCHES;
+
+                if (matchesToRender.length === 0) {
+                  return (
+                    <div className="p-8 text-center text-content-muted">
+                      No hay partidos que coincidan con el filtro seleccionado.
                     </div>
+                  );
+                }
 
-                    {/* Predicciones */}
-                    <div className="flex items-center gap-2 md:gap-8 justify-center w-2/4">
-                      <div className="flex items-center gap-1 md:gap-2 bg-base px-2 md:px-3 py-1.5 rounded-lg border border-line">
-                        <span className="text-content font-bold">{userAPred?.homeGoals}</span>
-                        <span className="text-content-muted">-</span>
-                        <span className="text-content font-bold">{userAPred?.awayGoals}</span>
+                return matchesToRender.map((match) => {
+                  const isKO = match.id.startsWith("M");
+                  const homeACode = isKO ? userAResolved[match.id]?.home : (match as any).homeTeam;
+                  const awayACode = isKO ? userAResolved[match.id]?.away : (match as any).awayTeam;
+                  const homeBCode = isKO ? userBResolved[match.id]?.home : (match as any).homeTeam;
+                  const awayBCode = isKO ? userBResolved[match.id]?.away : (match as any).awayTeam;
+
+                  const homeA = homeACode ? TEAMS[homeACode] : null;
+                  const awayA = awayACode ? TEAMS[awayACode] : null;
+                  const homeB = homeBCode ? TEAMS[homeBCode] : null;
+                  const awayB = awayBCode ? TEAMS[awayBCode] : null;
+
+                  const userAPred = userA ? (isKO ? userA.knockoutPredictions[match.id] : userA.predictions[match.id]) : undefined;
+                  const userBPred = userB ? (isKO ? userB.knockoutPredictions[match.id] : userB.predictions[match.id]) : undefined;
+
+                  const ptsA = getMatchPoints(match.id, isKO, isKO ? userA?.knockoutPredictions : userA?.predictions, userAResolved);
+                  const ptsB = getMatchPoints(match.id, isKO, isKO ? userB?.knockoutPredictions : userB?.predictions, userBResolved);
+                  const official = officialMatchesMap[match.id];
+
+                  return (
+                    <div
+                      key={match.id}
+                      className="p-4 flex flex-col md:flex-row items-center justify-between hover:bg-panel/30 transition-colors gap-4"
+                    >
+                      {/* Usuario A */}
+                      <div className="flex-1 w-full flex items-center justify-between gap-3 md:justify-end">
+                        {/* Equipos A */}
+                        <div className="flex items-center gap-2 min-w-0 md:justify-end flex-1">
+                          {homeA ? (
+                            <>
+                              <span className="font-semibold text-content text-xs sm:text-sm truncate md:order-1">
+                                {homeA.name}
+                              </span>
+                              <div className="md:order-2 shrink-0">
+                                <Flag iso2={homeA.iso2} name={homeA.name} size="md" />
+                              </div>
+                            </>
+                          ) : (
+                            <span className="text-xs text-content-muted italic">TBD</span>
+                          )}
+                          <span className="text-content-muted font-bold text-xs mx-1 md:order-3">vs</span>
+                          {awayA ? (
+                            <>
+                              <div className="shrink-0 md:order-4">
+                                <Flag iso2={awayA.iso2} name={awayA.name} size="md" />
+                              </div>
+                              <span className="font-semibold text-content text-xs sm:text-sm truncate md:order-5">
+                                {awayA.name}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-xs text-content-muted italic">TBD</span>
+                          )}
+                        </div>
+
+                        {/* Pronóstico A */}
+                        <div className="flex items-center gap-2 shrink-0 md:ml-3">
+                          <div className="flex items-center gap-1 bg-base px-2 py-1 rounded border border-line text-xs font-extrabold text-content shadow-sm">
+                            <span>{userAPred?.homeGoals ?? "-"}</span>
+                            <span className="text-content-muted">:</span>
+                            <span>{userAPred?.awayGoals ?? "-"}</span>
+                          </div>
+                          {renderPointsBadge(ptsA, userAPred, official)}
+                        </div>
                       </div>
-                      <span className="text-[10px] md:text-xs font-bold text-content-muted uppercase">VS</span>
-                      <div className="flex items-center gap-1 md:gap-2 bg-base px-2 md:px-3 py-1.5 rounded-lg border border-line">
-                        <span className="text-content font-bold">{userBPred?.homeGoals}</span>
-                        <span className="text-content-muted">-</span>
-                        <span className="text-content font-bold">{userBPred?.awayGoals}</span>
+
+                      {/* Resultado Oficial + Diferencia de Puntos */}
+                      <div className="shrink-0 flex md:flex-col items-center justify-between md:justify-center px-4 bg-panel/35 py-2 md:py-2 rounded-xl md:rounded-2xl border border-line/40 gap-3 w-full md:w-28 shadow-sm">
+                        <span className="text-[10px] font-bold text-brand uppercase tracking-wider">{match.id}</span>
+                        {official ? (
+                          <div className="flex items-center gap-1 text-xs font-extrabold text-content bg-base border border-line px-2.5 py-1 rounded-lg shadow-inner">
+                            {official.home_goals} - {official.away_goals}
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-content-muted font-bold bg-base border border-line/40 px-2 py-0.5 rounded-md">TBD</span>
+                        )}
+                        {renderDiffBadge(ptsA, ptsB, official)}
+                      </div>
+
+                      {/* Usuario B */}
+                      <div className="flex-1 w-full flex items-center justify-between gap-3">
+                        {/* Pronóstico B */}
+                        <div className="flex items-center gap-2 shrink-0 md:mr-3">
+                          {renderPointsBadge(ptsB, userBPred, official)}
+                          <div className="flex items-center gap-1 bg-base px-2 py-1 rounded border border-line text-xs font-extrabold text-content shadow-sm">
+                            <span>{userBPred?.homeGoals ?? "-"}</span>
+                            <span className="text-content-muted">:</span>
+                            <span>{userBPred?.awayGoals ?? "-"}</span>
+                          </div>
+                        </div>
+
+                        {/* Equipos B */}
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          {homeB ? (
+                            <>
+                              <div className="shrink-0">
+                                <Flag iso2={homeB.iso2} name={homeB.name} size="md" />
+                              </div>
+                              <span className="font-semibold text-content text-xs sm:text-sm truncate">
+                                {homeB.name}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-xs text-content-muted italic">TBD</span>
+                          )}
+                          <span className="text-content-muted font-bold text-xs mx-1">vs</span>
+                          {awayB ? (
+                            <>
+                              <div className="shrink-0">
+                                <Flag iso2={awayB.iso2} name={awayB.name} size="md" />
+                              </div>
+                              <span className="font-semibold text-content text-xs sm:text-sm truncate">
+                                {awayB.name}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-xs text-content-muted italic">TBD</span>
+                          )}
+                        </div>
                       </div>
                     </div>
-
-                    {/* Equipo Visitante */}
-                    <div className="flex items-center gap-3 justify-end w-1/4">
-                      <span className="font-semibold text-content hidden md:block">{away.name}</span>
-                      <span className="font-semibold text-content md:hidden">{away.code}</span>
-                      <Flag iso2={away.iso2} name={away.name} size="md" />
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                });
+              })()}
             </div>
+            
+            {/* Pie de Página */}
             <div className="p-4 text-center bg-panel/30 border-t border-line/50">
-              <p className="text-xs text-content-muted">Mostrando los primeros 10 partidos para demostración...</p>
+              <p className="text-xs text-content-muted">
+                Comparando todos los pronósticos y diferencias en tiempo real.
+              </p>
             </div>
           </div>
         </div>
