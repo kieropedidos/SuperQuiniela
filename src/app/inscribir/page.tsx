@@ -46,6 +46,7 @@ export default function InscribirPage() {
 
   const [blockRegistrations, setBlockRegistrations] = useState(false);
   const [blockEdits, setBlockEdits] = useState(false);
+  const [blockEditsKnockout, setBlockEditsKnockout] = useState(false);
   const [originalStatus, setOriginalStatus] = useState<string | null>(null);
 
   // Verificar si ya tiene quiniela inscrita y su estado de aprobación
@@ -60,6 +61,7 @@ export default function InscribirPage() {
       // Cargar configuraciones de bloqueo
       let isRegBlocked = false;
       let isEditsBlocked = false;
+      let isEditsKnockoutBlocked = false;
       try {
         const { data: settings } = await supabase
           .from("system_settings")
@@ -67,10 +69,13 @@ export default function InscribirPage() {
         if (settings) {
           const regSetting = settings.find((s) => s.key === "block_registrations");
           const editSetting = settings.find((s) => s.key === "block_edits");
+          const editKnockoutSetting = settings.find((s) => s.key === "block_edits_knockout");
           isRegBlocked = !!regSetting?.value?.enabled;
           isEditsBlocked = !!editSetting?.value?.enabled;
+          isEditsKnockoutBlocked = !!editKnockoutSetting?.value?.enabled;
           setBlockRegistrations(isRegBlocked);
           setBlockEdits(isEditsBlocked);
+          setBlockEditsKnockout(isEditsKnockoutBlocked);
         }
       } catch (err) {
         console.error("Error al cargar configuraciones de bloqueo:", err);
@@ -136,11 +141,11 @@ export default function InscribirPage() {
           }
         } else {
           // Si ya está inscrita (pending o approved)
-          if (isEditsBlocked) {
-            // Ediciones cerradas: mostramos pantalla de bloqueo según corresponda
+          if (isEditsBlocked && isEditsKnockoutBlocked) {
+            // Ediciones cerradas por completo: mostramos pantalla de bloqueo según corresponda
             setRegistrationStatus(data.status === "approved" ? "approved" : "pending");
           } else {
-            // Ediciones abiertas: cargamos datos y permitimos editar
+            // Ediciones abiertas para al menos una fase: cargamos datos y permitimos editar
             if (data.predictions) {
               setPredictions(data.predictions);
             }
@@ -381,16 +386,19 @@ export default function InscribirPage() {
       
       let isRegBlocked = false;
       let isEditsBlocked = false;
+      let isEditsKnockoutBlocked = false;
       if (settings) {
         const regSetting = settings.find((s) => s.key === "block_registrations");
         const editSetting = settings.find((s) => s.key === "block_edits");
+        const editKnockoutSetting = settings.find((s) => s.key === "block_edits_knockout");
         isRegBlocked = !!regSetting?.value?.enabled;
         isEditsBlocked = !!editSetting?.value?.enabled;
+        isEditsKnockoutBlocked = !!editKnockoutSetting?.value?.enabled;
       }
 
       const isEditing = originalStatus !== null && originalStatus !== "draft";
 
-      if (isEditing && isEditsBlocked) {
+      if (isEditing && isEditsBlocked && isEditsKnockoutBlocked) {
         alert("❌ Las modificaciones a las quinielas han sido cerradas por el administrador.");
         setIsSaving(false);
         return;
@@ -520,14 +528,16 @@ export default function InscribirPage() {
         </div>
         
         {/* Botón de relleno aleatorio dinámico */}
-        <button
-          onClick={step === "groups" ? fillRandomGroups : fillRandomKnockout}
-          className="flex items-center gap-2 px-4 py-2 bg-panel hover:bg-card border border-line rounded-lg text-sm font-semibold text-content transition-colors shrink-0"
-        >
-          <Dices size={18} className="text-brand" />
-          <span className="hidden sm:inline">Completar al Azar</span>
-          <span className="sm:hidden">Al Azar</span>
-        </button>
+        {((step === "groups" && !blockEdits) || (step === "knockout" && !blockEditsKnockout)) && (
+          <button
+            onClick={step === "groups" ? fillRandomGroups : fillRandomKnockout}
+            className="flex items-center gap-2 px-4 py-2 bg-panel hover:bg-card border border-line rounded-lg text-sm font-semibold text-content transition-colors shrink-0"
+          >
+            <Dices size={18} className="text-brand" />
+            <span className="hidden sm:inline">Completar al Azar</span>
+            <span className="sm:hidden">Al Azar</span>
+          </button>
+        )}
       </div>
 
       {/* Progress Steps */}
@@ -565,6 +575,15 @@ export default function InscribirPage() {
       {/* ===== STEP 1: FASE DE GRUPOS ===== */}
       {step === "groups" && (
         <>
+          {blockEdits && (
+            <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-4 mb-6 text-xs leading-relaxed flex items-center gap-3 animate-in fade-in duration-300">
+              <span className="text-red-500 text-lg">🔒</span>
+              <div className="text-content">
+                <span className="font-bold text-red-500 block mb-0.5">Fase de Grupos Bloqueada:</span>
+                El primer partido del mundial ha comenzado. Ya no se pueden editar los pronósticos de la fase de grupos.
+              </div>
+            </div>
+          )}
           {/* Group Tabs */}
           <div className="relative">
             <div className="flex overflow-x-auto pb-3 gap-2 mb-6 hide-scrollbar">
@@ -642,13 +661,14 @@ export default function InscribirPage() {
                                 max="20"
                                 inputMode="numeric"
                                 pattern="[0-9]*"
+                                disabled={blockEdits}
                                 value={pred?.homeGoals ?? ""}
                                 onChange={(e) => {
                                   updatePrediction(match.id, "home", e.target.value);
                                   if (e.target.value !== "") focusNextInput(e.target);
                                 }}
                                 placeholder="-"
-                                className="w-11 h-12 bg-base border-2 border-line rounded-lg text-center text-lg font-bold text-content focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all appearance-none"
+                                className="w-11 h-12 bg-base border-2 border-line rounded-lg text-center text-lg font-bold text-content focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
                               />
                               <span className="text-content-muted font-bold text-sm">:</span>
                               <input
@@ -657,13 +677,14 @@ export default function InscribirPage() {
                                 max="20"
                                 inputMode="numeric"
                                 pattern="[0-9]*"
+                                disabled={blockEdits}
                                 value={pred?.awayGoals ?? ""}
                                 onChange={(e) => {
                                   updatePrediction(match.id, "away", e.target.value);
                                   if (e.target.value !== "") focusNextInput(e.target);
                                 }}
                                 placeholder="-"
-                                className="w-11 h-12 bg-base border-2 border-line rounded-lg text-center text-lg font-bold text-content focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all appearance-none"
+                                className="w-11 h-12 bg-base border-2 border-line rounded-lg text-center text-lg font-bold text-content focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
                               />
                             </div>
 
@@ -756,6 +777,7 @@ export default function InscribirPage() {
             matches={ALL_KNOCKOUT_MATCHES}
             resolvedBracket={resolvedBracket}
             predictions={knockoutPredictions}
+            readOnly={blockEditsKnockout}
             onUpdate={updateKnockoutPrediction}
           />
 

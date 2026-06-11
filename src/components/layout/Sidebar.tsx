@@ -25,17 +25,19 @@ export default function Sidebar() {
   const [points, setPoints] = useState<number>(0);
   const [quinielaStatus, setQuinielaStatus] = useState<string | null>(null);
   const [blockEdits, setBlockEdits] = useState<boolean>(false);
+  const [blockEditsKnockout, setBlockEditsKnockout] = useState<boolean>(false);
 
   useEffect(() => {
     async function fetchSettings() {
       try {
-        const { data } = await supabase
+        const { data: settings } = await supabase
           .from("system_settings")
-          .select("value")
-          .eq("key", "block_edits")
-          .maybeSingle();
-        if (data && data.value) {
-          setBlockEdits(!!data.value.enabled);
+          .select("*");
+        if (settings) {
+          const editSetting = settings.find((s) => s.key === "block_edits");
+          const editKnockoutSetting = settings.find((s) => s.key === "block_edits_knockout");
+          setBlockEdits(!!editSetting?.value?.enabled);
+          setBlockEditsKnockout(!!editKnockoutSetting?.value?.enabled);
         }
       } catch (err) {
         console.error("Error al cargar configuración en Sidebar:", err);
@@ -218,7 +220,7 @@ export default function Sidebar() {
           {user ? (
             quinielaStatus === "draft" ? "Completa tu quiniela" :
             quinielaStatus === null ? "Registra tu quiniela" :
-            blockEdits ? "Ver Mi Quiniela" : "Editar Mi Quiniela"
+            (blockEdits && blockEditsKnockout) ? "Ver Mi Quiniela" : "Editar Mi Quiniela"
           ) : (
             "Inscribir Quiniela"
           )}

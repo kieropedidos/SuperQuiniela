@@ -52,6 +52,8 @@ export default function AdminPage() {
   const [savingRegistrations, setSavingRegistrations] = useState<boolean>(false);
   const [blockEdits, setBlockEdits] = useState<boolean>(false);
   const [savingEdits, setSavingEdits] = useState<boolean>(false);
+  const [blockEditsKnockout, setBlockEditsKnockout] = useState<boolean>(false);
+  const [savingEditsKnockout, setSavingEditsKnockout] = useState<boolean>(false);
 
   // Gestión de inscripciones
   interface PendingQuiniela {
@@ -255,6 +257,16 @@ export default function AdminPage() {
           setBlockEdits(!!editSetting.value.enabled);
         }
 
+        // Cargar bloqueo de ediciones de eliminatorias
+        const { data: editKOSetting } = await supabase
+          .from("system_settings")
+          .select("value")
+          .eq("key", "block_edits_knockout")
+          .maybeSingle();
+        if (editKOSetting && editKOSetting.value) {
+          setBlockEditsKnockout(!!editKOSetting.value.enabled);
+        }
+
         // Cargar resultados oficiales existentes
         const { data } = await supabase.from("official_matches").select("*");
         if (data) {
@@ -334,6 +346,25 @@ export default function AdminPage() {
     setSavingEdits(false);
   };
 
+  const handleToggleEditsKnockout = async () => {
+    setSavingEditsKnockout(true);
+    const nextVal = !blockEditsKnockout;
+    const { error } = await supabase
+      .from("system_settings")
+      .upsert({
+        key: "block_edits_knockout",
+        value: { enabled: nextVal },
+        updated_at: new Date().toISOString()
+      });
+
+    if (error) {
+      alert("Error al cambiar bloqueo de ediciones de eliminatorias: " + error.message);
+    } else {
+      setBlockEditsKnockout(nextVal);
+    }
+    setSavingEditsKnockout(false);
+  };
+
   const handleUpdate = (matchId: string, side: "home" | "away", value: string) => {
     const numVal = value === "" ? null : parseInt(value, 10);
     if (numVal !== null && (isNaN(numVal) || numVal < 0 || numVal > 20)) return;
@@ -392,7 +423,7 @@ export default function AdminPage() {
       </div>
 
       {/* Ajustes Globales del Torneo */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         
         {/* Visibilidad Pública */}
         <div className="glass-panel p-5 flex flex-col justify-between gap-4 border border-line rounded-2xl bg-panel/30">
@@ -401,7 +432,7 @@ export default function AdminPage() {
               {quinielasVisible ? <Eye size={20} /> : <EyeOff size={20} />}
             </div>
             <div>
-              <h3 className="font-bold text-content text-sm">Visibilidad del Torneo</h3>
+              <h3 className="font-bold text-content text-sm">Visibilidad Torneo</h3>
               <p className="text-xs text-content-muted mt-1 leading-relaxed">
                 {quinielasVisible 
                   ? "Las quinielas y el ranking son visibles para todos." 
@@ -429,7 +460,7 @@ export default function AdminPage() {
               {!blockRegistrations ? <UserCheck size={20} /> : <UserX size={20} />}
             </div>
             <div>
-              <h3 className="font-bold text-content text-sm">Nuevas Inscripciones</h3>
+              <h3 className="font-bold text-content text-sm">Inscripciones</h3>
               <p className="text-xs text-content-muted mt-1 leading-relaxed">
                 {!blockRegistrations 
                   ? "Se aceptan nuevas quinielas e inscripciones." 
@@ -450,18 +481,18 @@ export default function AdminPage() {
           </button>
         </div>
 
-        {/* Bloqueo de Ediciones */}
+        {/* Bloqueo de Ediciones - Grupos */}
         <div className="glass-panel p-5 flex flex-col justify-between gap-4 border border-line rounded-2xl bg-panel/30">
           <div className="flex items-start gap-3">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${!blockEdits ? 'bg-brand/10 text-brand border border-brand/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
               {!blockEdits ? <Clock size={20} /> : <Lock size={20} />}
             </div>
             <div>
-              <h3 className="font-bold text-content text-sm">Edición de Quinielas</h3>
+              <h3 className="font-bold text-content text-sm">Edición Grupos</h3>
               <p className="text-xs text-content-muted mt-1 leading-relaxed">
                 {!blockEdits 
-                  ? "Los usuarios pueden editar sus predicciones ya enviadas." 
-                  : "Las ediciones están cerradas. Todas las predicciones están bloqueadas."}
+                  ? "Se permite la edición de pronósticos de fase de grupos." 
+                  : "Fase de grupos bloqueada para edición."}
               </p>
             </div>
           </div>
@@ -474,7 +505,35 @@ export default function AdminPage() {
                 : 'bg-brand/10 hover:bg-brand/20 text-brand border border-brand/20'
             }`}
           >
-            {savingEdits ? "Guardando..." : !blockEdits ? "Bloquear Ediciones" : "Permitir Ediciones"}
+            {savingEdits ? "Guardando..." : !blockEdits ? "Bloquear Grupos" : "Permitir Grupos"}
+          </button>
+        </div>
+
+        {/* Bloqueo de Ediciones - Eliminatorias */}
+        <div className="glass-panel p-5 flex flex-col justify-between gap-4 border border-line rounded-2xl bg-panel/30">
+          <div className="flex items-start gap-3">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${!blockEditsKnockout ? 'bg-brand/10 text-brand border border-brand/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
+              {!blockEditsKnockout ? <Clock size={20} /> : <Lock size={20} />}
+            </div>
+            <div>
+              <h3 className="font-bold text-content text-sm">Edición Eliminatorias</h3>
+              <p className="text-xs text-content-muted mt-1 leading-relaxed">
+                {!blockEditsKnockout 
+                  ? "Se permite la edición del cuadro de eliminatorias." 
+                  : "Eliminatorias bloqueadas para edición."}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleToggleEditsKnockout}
+            disabled={savingEditsKnockout}
+            className={`w-full py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+              !blockEditsKnockout 
+                ? 'bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20' 
+                : 'bg-brand/10 hover:bg-brand/20 text-brand border border-brand/20'
+            }`}
+          >
+            {savingEditsKnockout ? "Guardando..." : !blockEditsKnockout ? "Bloquear Eliminat." : "Permitir Eliminat."}
           </button>
         </div>
 

@@ -314,6 +314,16 @@ export default function KnockoutBracket({
 
   return (
     <>
+      {readOnly && (
+        <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-4 mb-6 text-xs leading-relaxed flex items-center gap-3 animate-in fade-in duration-300">
+          <span className="text-red-500 text-lg">🔒</span>
+          <div className="text-content">
+            <span className="font-bold text-red-500 block mb-0.5">Eliminatorias Bloqueadas:</span>
+            El plazo de edición de eliminatorias ha expirado (16 de junio). Los pronósticos del cuadro están bloqueados.
+          </div>
+        </div>
+      )}
+
       {/* Banner de regla de penales (Visible en desktop y móvil) */}
       <div className="bg-brand/5 border border-brand/20 rounded-xl p-4 mb-6 text-xs leading-relaxed">
         <span className="font-bold text-brand block mb-1">⚔️ Regla de Eliminatorias:</span>
