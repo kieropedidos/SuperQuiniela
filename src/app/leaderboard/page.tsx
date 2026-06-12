@@ -175,6 +175,19 @@ export default function LeaderboardPage() {
     );
   }, [users, searchQuery]);
 
+  // Dense ranking: users with same points share the same rank
+  const getRank = useMemo(() => {
+    const rankMap = new Map<string, number>();
+    let currentRank = 1;
+    for (let i = 0; i < users.length; i++) {
+      if (i > 0 && users[i].points < users[i - 1].points) {
+        currentRank = i + 1;
+      }
+      rankMap.set(users[i].id, currentRank);
+    }
+    return (userId: string) => rankMap.get(userId) ?? 0;
+  }, [users]);
+
   // Construir el podio de los 3 mejores con fallbacks seguros
   const top1 = users[0] || { username: "Pendiente", points: 0, aliasName: "" };
   const top2 = users[1] || { username: "Pendiente", points: 0, aliasName: "" };
@@ -359,8 +372,8 @@ export default function LeaderboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {filteredUsers.map((user, idx) => {
-                  const rank = idx + 1;
+                {filteredUsers.map((user) => {
+                  const rank = getRank(user.id);
                   const isCurrentUser = user.id === currentUserId;
                   return (
                     <tr 
@@ -405,8 +418,8 @@ export default function LeaderboardPage() {
 
             {/* Mobile List */}
             <div className="sm:hidden divide-y divide-line/50">
-              {filteredUsers.map((user, idx) => {
-                const rank = idx + 1;
+              {filteredUsers.map((user) => {
+                const rank = getRank(user.id);
                 const isCurrentUser = user.id === currentUserId;
                 const rankColor = rank === 1 ? "bg-yellow-500 text-black" : rank === 2 ? "bg-gray-400 text-white" : rank === 3 ? "bg-amber-600 text-white" : "bg-line/80 text-content-muted";
                 return (

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
-import { Users, Swords, X, Trophy, EyeOff } from "lucide-react";
+import { Users, Swords, X, Trophy, EyeOff, Search } from "lucide-react";
 import {
   ALL_GROUP_MATCHES,
   ALL_KNOCKOUT_MATCHES,
@@ -54,6 +54,7 @@ export default function PronosticosPage() {
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [pdfStep, setPdfStep] = useState<string>("");
   const [officialMatchesMap, setOfficialMatchesMap] = useState<Record<string, { home_goals: number; away_goals: number }>>({});
+  const [feedSearchQuery, setFeedSearchQuery] = useState("");
 
   // Preparar datos oficiales para el árbol de eliminatorias en modal
   const officialMatchesMapForBracket = useMemo(() => {
@@ -652,6 +653,31 @@ export default function PronosticosPage() {
           VISTA 1: FEED DE JUGADORES
       ========================================= */}
       {viewMode === "feed" && (
+        <>
+          {/* Search Bar */}
+          {!isLoading && users.length > 0 && (
+            <div className="mb-6 relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                <Search size={16} className="text-content-muted" />
+              </div>
+              <input
+                type="text"
+                value={feedSearchQuery}
+                onChange={(e) => setFeedSearchQuery(e.target.value)}
+                placeholder="Buscar quiniela por nombre de usuario..."
+                className="w-full bg-base border border-line rounded-xl pl-10 pr-10 py-2.5 text-sm text-content placeholder:text-content-muted/60 focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-colors"
+              />
+              {feedSearchQuery && (
+                <button
+                  onClick={() => setFeedSearchQuery("")}
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-content-muted hover:text-content transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {isLoading ? (
             <div className="col-span-full text-center py-12">
@@ -666,7 +692,22 @@ export default function PronosticosPage() {
               <h3 className="text-xl font-bold text-content">El torneo está vacío</h3>
               <p className="text-content-muted mt-2">Nadie ha inscrito su quiniela aún. ¡Aprovecha y sé el primero!</p>
             </div>
-          ) : users.map((user) => {
+          ) : (() => {
+            const filtered = feedSearchQuery.trim()
+              ? users.filter(u => u.username.toLowerCase().includes(feedSearchQuery.toLowerCase()))
+              : users;
+            
+            if (filtered.length === 0) {
+              return (
+                <div className="col-span-full text-center py-12">
+                  <Search size={32} className="text-content-muted/40 mx-auto mb-3" />
+                  <p className="text-content-muted font-medium">No se encontró ningún usuario con &quot;{feedSearchQuery}&quot;</p>
+                  <button onClick={() => setFeedSearchQuery("")} className="text-brand text-sm font-semibold mt-2 hover:underline">Limpiar búsqueda</button>
+                </div>
+              );
+            }
+            
+            return filtered.map((user) => {
             const champion = user.championCode !== "TBD" ? TEAMS[user.championCode] : null;
             const runnerUp = user.runnerUpCode !== "TBD" ? TEAMS[user.runnerUpCode] : null;
             
@@ -729,8 +770,10 @@ export default function PronosticosPage() {
                 </p>
               </div>
             );
-          })}
+          });
+          })()}
         </div>
+        </>
       )}
 
       {/* =========================================

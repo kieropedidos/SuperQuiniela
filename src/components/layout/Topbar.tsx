@@ -4,11 +4,16 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { Menu, X, ScrollText, Settings, ShieldCheck, User } from "lucide-react";
+import { calculateUserPoints } from "@/scoringEngine";
+import { Menu, X, ScrollText, Settings, ShieldCheck, User, Trophy } from "lucide-react";
 
 export default function Topbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [username, setUsername] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userPoints, setUserPoints] = useState<number | null>(null);
+  const [userRank, setUserRank] = useState<number | null>(null);
+  const [totalParticipants, setTotalParticipants] = useState<number>(0);
   const pathname = usePathname();
 
   const handleLogout = async () => {
@@ -19,12 +24,68 @@ export default function Topbar() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUsername(session?.user?.user_metadata?.username || "");
+      setUserId(session?.user?.id || null);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       setUsername(session?.user?.user_metadata?.username || "");
+      setUserId(session?.user?.id || null);
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // Fetch user points and rank
+  useEffect(() => {
+    if (!userId) return;
+
+    async function fetchRank() {
+      try {
+        // Fetch all approved quinielas
+        const { data: quinielasData } = await supabase
+          .from("user_quinielas")
+          .select("user_id, predictions, knockout_predictions")
+          .eq("status", "approved");
+
+        // Fetch official matches
+        const { data: officialMatchesData } = await supabase
+          .from("official_matches")
+          .select("*");
+
+        const officialMatches = officialMatchesData || [];
+        const quinielas = quinielasData || [];
+        setTotalParticipants(quinielas.length);
+
+        // Calculate points for all users
+        const allScores = quinielas.map((row: any) => {
+          const scoring = calculateUserPoints(
+            row.predictions || {},
+            row.knockout_predictions || {},
+            officialMatches
+          );
+          return { userId: row.user_id, points: scoring.totalPoints };
+        });
+
+        // Sort descending
+        allScores.sort((a, b) => b.points - a.points);
+
+        // Dense ranking: users with same points share the same rank
+        let currentRank = 1;
+        for (let i = 0; i < allScores.length; i++) {
+          if (i > 0 && allScores[i].points < allScores[i - 1].points) {
+            currentRank = i + 1;
+          }
+          if (allScores[i].userId === userId) {
+            setUserPoints(allScores[i].points);
+            setUserRank(currentRank);
+            break;
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching rank:", err);
+      }
+    }
+
+    fetchRank();
+  }, [userId]);
 
   // Cerrar el menú automáticamente al cambiar de página
   useEffect(() => {
@@ -44,12 +105,28 @@ export default function Topbar() {
           />
           <span className="text-lg font-bold text-brand tracking-tight">Quiniela 2026</span>
         </Link>
-        <button 
-          onClick={() => setIsOpen(true)}
-          className="p-2 -mr-2 text-content-muted hover:text-content hover:bg-card rounded-md transition-colors"
-        >
-          <Menu size={24} />
-        </button>
+        <div className="flex items-center gap-2">
+          {/* User Points & Rank Badge */}
+          {userRank !== null && userPoints !== null && (
+            <Link
+              href="/leaderboard"
+              className="flex items-center gap-1.5 bg-base/80 border border-line/60 rounded-lg px-2 py-1 hover:border-brand/40 transition-colors"
+            >
+              <div className="flex items-center gap-1">
+                <Trophy size={12} className="text-yellow-500" />
+                <span className="text-[11px] font-black text-content">#{userRank}</span>
+              </div>
+              <div className="w-px h-3 bg-line/60"></div>
+              <span className="text-[11px] font-bold text-brand">{userPoints} pts</span>
+            </Link>
+          )}
+          <button 
+            onClick={() => setIsOpen(true)}
+            className="p-2 -mr-2 text-content-muted hover:text-content hover:bg-card rounded-md transition-colors"
+          >
+            <Menu size={24} />
+          </button>
+        </div>
       </header>
 
       {/* Menú Deslizante (Drawer) para móviles */}
@@ -72,6 +149,11 @@ export default function Topbar() {
                 </div>
                 <div className="flex flex-col min-w-0">
                   <span className="font-bold text-content text-sm truncate">{username || "Menú"}</span>
+                  {userRank !== null && userPoints !== null && (
+                    <span className="text-[10px] text-brand font-bold">
+                      #{userRank} de {totalParticipants} · {userPoints} pts
+                    </span>
+                  )}
                   {username && (
                     <button
                       onClick={handleLogout}
