@@ -52,6 +52,7 @@ export default function PronosticosPage() {
   const [compareTab, setCompareTab] = useState<"groups" | "knockout">("groups");
   const [compareGroupFilter, setCompareGroupFilter] = useState<string>("all");
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [pdfStep, setPdfStep] = useState<string>("");
   const [officialMatchesMap, setOfficialMatchesMap] = useState<Record<string, { home_goals: number; away_goals: number }>>({});
 
   // Preparar datos oficiales para el árbol de eliminatorias en modal
@@ -91,11 +92,13 @@ export default function PronosticosPage() {
 
   const downloadGroupPredictionsPDF = async () => {
     setIsGeneratingPDF(true);
+    setPdfStep("Inicializando...");
     try {
       const { default: jsPDF } = await import("jspdf");
       const { default: autoTable } = await import("jspdf-autotable");
 
       // 1. Cargar todas las banderas en base64 si no están en caché
+      setPdfStep("Banderas (flagcdn)...");
       const teamsList = Object.values(TEAMS);
       const flagPromises = teamsList.map(async (team) => {
         if (flagCache[team.iso2]) return;
@@ -117,6 +120,7 @@ export default function PronosticosPage() {
       await Promise.all(flagPromises);
 
       // 2. Preparar la lista de usuarios incluyendo a Vicdaddy si no está en el listado de aprobados
+      setPdfStep("Compilando datos...");
       let pdfUsers = [...users];
       const hasVicdaddy = pdfUsers.some(u => u.username.toLowerCase() === "vicdaddy");
       if (!hasVicdaddy) {
@@ -158,6 +162,7 @@ export default function PronosticosPage() {
       }
 
       // Ordenar por puntos (manteniendo a los mejores arriba)
+      setPdfStep("Generando PDF...");
       pdfUsers.sort((a, b) => b.points - a.points);
       console.log("PDF Users Count:", pdfUsers.length);
       console.log("PDF Users list:", pdfUsers.map(u => u.username));
@@ -632,7 +637,7 @@ export default function PronosticosPage() {
           {isGeneratingPDF ? (
             <>
               <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              <span>Generando PDF...</span>
+              <span className="animate-pulse">{pdfStep}</span>
             </>
           ) : (
             <>
@@ -912,6 +917,21 @@ export default function PronosticosPage() {
                   );
                 };
 
+                const getComparisonStyle = (predA?: MatchPrediction, predB?: MatchPrediction) => {
+                  if (!predA || !predB || predA.homeGoals === null || predA.awayGoals === null || predB.homeGoals === null || predB.awayGoals === null) {
+                    return "hover:bg-panel/30 border-y border-transparent";
+                  }
+                  if (predA.homeGoals === predB.homeGoals && predA.awayGoals === predB.awayGoals) {
+                    return "bg-emerald-950/15 hover:bg-emerald-950/25 border-y border-emerald-500/25";
+                  }
+                  const winnerA = predA.homeGoals > predA.awayGoals ? "home" : predA.homeGoals < predA.awayGoals ? "away" : "tie";
+                  const winnerB = predB.homeGoals > predB.awayGoals ? "home" : predB.homeGoals < predB.awayGoals ? "away" : "tie";
+                  if (winnerA === winnerB) {
+                    return "bg-yellow-950/10 hover:bg-yellow-950/20 border-y border-yellow-500/15";
+                  }
+                  return "bg-red-950/10 hover:bg-red-950/20 border-y border-red-500/15";
+                };
+
                 const matchesToRender = compareTab === "groups"
                   ? ALL_GROUP_MATCHES.filter((m) => compareGroupFilter === "all" || m.group === compareGroupFilter)
                   : ALL_KNOCKOUT_MATCHES;
@@ -946,7 +966,7 @@ export default function PronosticosPage() {
                   return (
                     <div
                       key={match.id}
-                      className="p-4 flex flex-col md:flex-row items-center justify-between hover:bg-panel/30 transition-colors gap-4"
+                      className={`p-4 flex flex-col md:flex-row items-center justify-between transition-colors gap-4 ${getComparisonStyle(userAPred, userBPred)}`}
                     >
                       {/* Usuario A */}
                       <div className="flex-1 w-full flex items-center justify-between gap-3 md:justify-end">
@@ -1240,10 +1260,16 @@ export default function PronosticosPage() {
                                   return (
                                     <div
                                       key={match.id}
-                                      className={`bg-card border rounded-xl p-3 sm:p-4 shadow-sm transition-colors ${
+                                      className={`border rounded-xl p-3 sm:p-4 shadow-sm transition-colors ${
                                         scoring
-                                          ? scoring.isExactScore ? "border-emerald-500/40" : scoring.points > 0 ? "border-line" : "border-red-500/20"
-                                          : "border-line hover:border-line-hover"
+                                          ? scoring.isExactScore 
+                                            ? "bg-emerald-950/15 border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.03)]" 
+                                            : scoring.isWinnerGuessed || scoring.isTieGuessed
+                                              ? "bg-green-950/10 border-green-500/30"
+                                              : scoring.isConsolation
+                                                ? "bg-yellow-950/10 border-yellow-500/30"
+                                                : "bg-red-950/10 border-red-500/20"
+                                          : "bg-card border-line hover:border-line-hover"
                                       }`}
                                     >
                                       <div className="flex items-center justify-between gap-3">

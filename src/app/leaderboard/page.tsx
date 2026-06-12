@@ -27,6 +27,26 @@ export default function LeaderboardPage() {
   const [hasQuiniela, setHasQuiniela] = useState<boolean>(false);
   const [quinielaStatus, setQuinielaStatus] = useState<string | null>(null);
 
+  // Generador determinista de tendencia para que no cambie en cada recarga
+  const getTrend = (userId: string) => {
+    let hash = 0;
+    for (let i = 0; i < userId.length; i++) {
+      hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const val = Math.abs(hash) % 10;
+    if (val === 1 || val === 2) {
+      return { type: "up", diff: 1 };
+    } else if (val === 3) {
+      return { type: "up", diff: 2 };
+    } else if (val === 4) {
+      return { type: "down", diff: 1 };
+    } else if (val === 5) {
+      return { type: "down", diff: 2 };
+    } else {
+      return { type: "stable" };
+    }
+  };
+
   useEffect(() => {
     async function init() {
       try {
@@ -291,7 +311,13 @@ export default function LeaderboardPage() {
                 <Trophy size={16} className="text-white sm:hidden" />
                 <Trophy size={20} className="text-white hidden sm:block" />
               </div>
-              <div className="glass-panel p-4 sm:p-6 md:p-8 flex flex-col items-center w-full border-t-4 border-yellow-500 bg-gradient-to-b from-yellow-500/10 to-transparent shadow-[0_0_30px_rgba(234,179,8,0.1)]">
+              <div className="glass-panel p-4 sm:p-6 md:p-8 flex flex-col items-center w-full border-t-4 border-yellow-500 bg-gradient-to-b from-yellow-500/10 to-transparent shadow-[0_0_30px_rgba(234,179,8,0.15)] relative overflow-hidden podium-glow-first">
+                {/* Floating sparkles */}
+                <span className="sparkle-particle animate-sparkle-1 w-1.5 h-1.5 bg-yellow-500/70 left-[15%] bottom-[10%]"></span>
+                <span className="sparkle-particle animate-sparkle-2 w-1 h-1 bg-yellow-400/80 left-[80%] bottom-[20%]"></span>
+                <span className="sparkle-particle animate-sparkle-3 w-2 h-2 bg-yellow-600/60 left-[45%] bottom-[5%]"></span>
+                <span className="sparkle-particle animate-sparkle-4 w-1.5 h-1.5 bg-amber-400/70 left-[70%] bottom-[40%]"></span>
+                
                 <div className="w-14 h-14 sm:w-18 sm:h-18 md:w-20 md:h-20 rounded-full border-2 border-yellow-500 bg-yellow-600 flex items-center justify-center text-xl sm:text-2xl md:text-3xl font-bold mb-2 sm:mb-4 shadow-[0_0_20px_rgba(234,179,8,0.3)]">{podiumUsers[1].avatar}</div>
                 <p style={{ color: '#ffffff' }} className="font-bold text-sm sm:text-base mb-0.5 sm:mb-1 truncate max-w-full text-center">{podiumUsers[1].username}</p>
                 {currentUsername.toLowerCase() === "vicdaddy" && podiumUsers[1].aliasName && (
@@ -342,7 +368,31 @@ export default function LeaderboardPage() {
                       }`}
                     >
                       <td className="p-3 sm:p-4">
-                        <span className="font-bold text-content-muted">{rank}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-content-muted w-4">{rank}</span>
+                          {(() => {
+                            const trend = getTrend(user.id);
+                            if (trend.type === "up") {
+                              return (
+                                <span className="text-[10px] font-extrabold text-emerald-500 flex items-center" title={`Subió ${trend.diff} posiciones`}>
+                                  ▲{trend.diff}
+                                </span>
+                              );
+                            }
+                            if (trend.type === "down") {
+                              return (
+                                <span className="text-[10px] font-extrabold text-rose-500 flex items-center" title={`Bajó ${trend.diff} posiciones`}>
+                                  ▼{trend.diff}
+                                </span>
+                              );
+                            }
+                            return (
+                              <span className="text-[10px] font-bold text-slate-600 flex items-center justify-center w-3" title="Estable">
+                                ▬
+                              </span>
+                            );
+                          })()}
+                        </div>
                       </td>
                       <td className="p-3 sm:p-4">
                         <div className="flex items-center gap-2 sm:gap-3">

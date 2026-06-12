@@ -92,3 +92,47 @@ input[type="number"] {
   background-color: var(--color-brand);
 }
 
+/* Animaciones y Clases para Efectos Premium */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 25px rgba(234, 179, 8, 0.15);
+    border-color: rgba(234, 179, 8, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 45px rgba(234, 179, 8, 0.45);
+    border-color: rgba(234, 179, 8, 0.85);
+  }
+}
+
+@keyframes float-sparkle {
+  0% {
+    transform: translateY(0) scale(0.6) rotate(0deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-80px) scale(1.2) rotate(180deg);
+    opacity: 0;
+  }
+}
+
+.podium-glow-first {
+  animation: pulse-glow 3s infinite ease-in-out;
+}
+
+.animate-sparkle-1 {
+  animation: float-sparkle 3s infinite linear;
+}
+.animate-sparkle-2 {
+  animation: float-sparkle 4s infinite linear 1s;
+}
+.animate-sparkle-3 {
+  animation: float-sparkle 3.5s infinite linear 2s;
+}
+.animate-sparkle-4 {
+  animation: float-sparkle 4.5s infinite linear 1.5s;
+}
+
+
