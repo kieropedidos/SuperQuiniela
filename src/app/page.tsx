@@ -49,6 +49,7 @@ export default function PronosticosPage() {
   const [compareB, setCompareB] = useState<string>("");
   const [compareTab, setCompareTab] = useState<"groups" | "knockout">("groups");
   const [compareGroupFilter, setCompareGroupFilter] = useState<string>("all");
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [officialMatchesMap, setOfficialMatchesMap] = useState<Record<string, { home_goals: number; away_goals: number }>>({});
 
   // Preparar datos oficiales para el árbol de eliminatorias en modal
@@ -84,6 +85,167 @@ export default function PronosticosPage() {
     setSelectedUser(user);
     setModalTab("groups");
     setModalGroupIndex(0);
+  };
+
+  const downloadGroupPredictionsPDF = async () => {
+    setIsGeneratingPDF(true);
+    try {
+      const { default: jsPDF } = await import("jspdf");
+      const { default: autoTable } = await import("jspdf-autotable");
+
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      // Ordenar partidos por grupo y jornada
+      const sortedMatches = [...ALL_GROUP_MATCHES].sort((a, b) => {
+        if (a.group !== b.group) {
+          return a.group.localeCompare(b.group);
+        }
+        return a.matchday - b.matchday;
+      });
+
+      users.forEach((user, index) => {
+        if (index > 0) {
+          doc.addPage();
+        }
+
+        // Encabezado principal de la página
+        doc.setFillColor(15, 23, 42); // Slate-900
+        doc.rect(0, 0, 210, 32, "F");
+
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(16);
+        doc.text("Quiniela 2026 - Fase de Grupos", 14, 13);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(156, 163, 175); // Gray-400
+        doc.text("Participante: ", 14, 21);
+        
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 176, 107); // Brand Green
+        doc.text(user.username, 37, 21);
+
+        if (user.aliasName) {
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(156, 163, 175);
+          doc.text(" (", doc.getTextWidth(user.username) + 37, 21);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(234, 179, 8); // Yellow
+          doc.text(user.aliasName, doc.getTextWidth(user.username) + 39, 21);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(156, 163, 175);
+          doc.text(")", doc.getTextWidth(user.username) + doc.getTextWidth(user.aliasName) + 39, 21);
+        }
+
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(9);
+        doc.text(`Puntos acumulados: ${user.points} PTS`, 14, 27);
+
+        const today = new Date().toLocaleDateString("es-MX", {
+          day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
+        });
+        doc.setFontSize(8);
+        doc.setTextColor(156, 163, 175);
+        doc.text(`Generado: ${today}`, 150, 13);
+
+        // Preparar datos de las tablas
+        const leftTableData: any[] = [];
+        const rightTableData: any[] = [];
+
+        for (let i = 0; i < 36; i++) {
+          const match = sortedMatches[i];
+          const pred = user.predictions[match.id];
+          const predStr = (pred && pred.homeGoals !== null && pred.awayGoals !== null) 
+            ? `${pred.homeGoals} - ${pred.awayGoals}` 
+            : "-";
+          leftTableData.push([match.group, `${match.homeTeam} vs ${match.awayTeam}`, predStr]);
+        }
+
+        for (let i = 36; i < 72; i++) {
+          const match = sortedMatches[i];
+          const pred = user.predictions[match.id];
+          const predStr = (pred && pred.homeGoals !== null && pred.awayGoals !== null) 
+            ? `${pred.homeGoals} - ${pred.awayGoals}` 
+            : "-";
+          rightTableData.push([match.group, `${match.homeTeam} vs ${match.awayTeam}`, predStr]);
+        }
+
+        // Dibujar Tabla Izquierda
+        autoTable(doc, {
+          head: [["Grupo", "Partido", "Pronóstico"]],
+          body: leftTableData,
+          startY: 38,
+          margin: { left: 14, right: 108 },
+          styles: { 
+            fontSize: 7.5, 
+            cellPadding: 1.5,
+            fillColor: [248, 250, 252], // Slate-50
+            textColor: [15, 23, 42],     // Slate-900
+            lineColor: [226, 232, 240],   // Slate-200
+            lineWidth: 0.1,
+          },
+          headStyles: {
+            fillColor: [15, 23, 42],
+            textColor: [255, 255, 255],
+            fontSize: 8,
+            fontStyle: "bold",
+          },
+          columnStyles: {
+            0: { cellWidth: 12, halign: "center" },
+            1: { cellWidth: 46 },
+            2: { cellWidth: 24, halign: "center", fontStyle: "bold" },
+          },
+          theme: "grid",
+        });
+
+        // Dibujar Tabla Derecha (en la misma posición Y de inicio)
+        autoTable(doc, {
+          head: [["Grupo", "Partido", "Pronóstico"]],
+          body: rightTableData,
+          startY: 38,
+          margin: { left: 110, right: 14 },
+          styles: { 
+            fontSize: 7.5, 
+            cellPadding: 1.5,
+            fillColor: [248, 250, 252],
+            textColor: [15, 23, 42],
+            lineColor: [226, 232, 240],
+            lineWidth: 0.1,
+          },
+          headStyles: {
+            fillColor: [15, 23, 42],
+            textColor: [255, 255, 255],
+            fontSize: 8,
+            fontStyle: "bold",
+          },
+          columnStyles: {
+            0: { cellWidth: 12, halign: "center" },
+            1: { cellWidth: 46 },
+            2: { cellWidth: 24, halign: "center", fontStyle: "bold" },
+          },
+          theme: "grid",
+        });
+
+        // Agregar pie de página para cada usuario
+        doc.setFontSize(7);
+        doc.setTextColor(148, 163, 184); // Slate-400
+        doc.text(`SuperQuiniela 2026 - Pág. ${index + 1} de ${users.length}`, 14, 287);
+        doc.text("Transparencia y deportividad · Todos los pronósticos están congelados al inicio del torneo.", 75, 287);
+      });
+
+      doc.save("Quiniela_2026_Pronosticos_Grupos.pdf");
+    } catch (err) {
+      console.error("Error al generar PDF:", err);
+      alert("Ocurrió un error al generar el PDF de pronósticos.");
+    } finally {
+      setIsGeneratingPDF(false);
+    }
   };
 
   useEffect(() => {
@@ -324,26 +486,47 @@ export default function PronosticosPage() {
       )}
 
       {/* View Tabs */}
-      <div className="flex items-center gap-2 border-b border-line mb-8 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-line mb-8 pb-4">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setViewMode("feed")}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+              viewMode === "feed"
+                ? "bg-brand text-white shadow-[0_0_15px_rgba(0,176,107,0.3)]"
+                : "text-content-muted hover:bg-panel hover:text-content"
+            }`}
+          >
+            <Users size={18} /> Explorar Quinielas
+          </button>
+          <button
+            onClick={() => setViewMode("compare")}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+              viewMode === "compare"
+                ? "bg-brand text-white shadow-[0_0_15px_rgba(0,176,107,0.3)]"
+                : "text-content-muted hover:bg-panel hover:text-content"
+            }`}
+          >
+            <Swords size={18} /> Comparar Cara a Cara
+          </button>
+        </div>
+
+        {/* PDF Download Button */}
         <button
-          onClick={() => setViewMode("feed")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-            viewMode === "feed"
-              ? "bg-brand text-white shadow-[0_0_15px_rgba(0,176,107,0.3)]"
-              : "text-content-muted hover:bg-panel hover:text-content"
-          }`}
+          onClick={downloadGroupPredictionsPDF}
+          disabled={isGeneratingPDF || isLoading || users.length === 0}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 disabled:bg-red-600/40 text-white rounded-lg text-xs font-bold transition-all shadow-[0_0_12px_rgba(220,38,38,0.25)] active:scale-95 disabled:scale-100 disabled:opacity-50 select-none cursor-pointer disabled:cursor-not-allowed"
         >
-          <Users size={18} /> Explorar Quinielas
-        </button>
-        <button
-          onClick={() => setViewMode("compare")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-            viewMode === "compare"
-              ? "bg-brand text-white shadow-[0_0_15px_rgba(0,176,107,0.3)]"
-              : "text-content-muted hover:bg-panel hover:text-content"
-          }`}
-        >
-          <Swords size={18} /> Comparar Cara a Cara
+          {isGeneratingPDF ? (
+            <>
+              <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              <span>Generando PDF...</span>
+            </>
+          ) : (
+            <>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+              <span>Descargar PDF Fase de Grupos</span>
+            </>
+          )}
         </button>
       </div>
 
