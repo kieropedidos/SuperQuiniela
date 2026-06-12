@@ -10,6 +10,7 @@ import { ALL_GROUP_MATCHES, ALL_KNOCKOUT_MATCHES } from "@/lib/worldCupData";
 interface UserRankData {
   id: string;
   username: string;
+  aliasName?: string;
   points: number;
   exactScores: number;
 }
@@ -98,6 +99,7 @@ export default function LeaderboardPage() {
             user_id,
             predictions,
             knockout_predictions,
+            alias_name,
             profiles (username, total_points)
           `)
           .eq("status", "approved");
@@ -122,6 +124,7 @@ export default function LeaderboardPage() {
           return {
             id: row.user_id,
             username: row.profiles?.username || "Usuario",
+            aliasName: row.alias_name || "",
             points: scoring.totalPoints,
             exactScores: scoring.exactScoresCount,
           };
@@ -153,14 +156,14 @@ export default function LeaderboardPage() {
   }, [users, searchQuery]);
 
   // Construir el podio de los 3 mejores con fallbacks seguros
-  const top1 = users[0] || { username: "Pendiente", points: 0 };
-  const top2 = users[1] || { username: "Pendiente", points: 0 };
-  const top3 = users[2] || { username: "Pendiente", points: 0 };
+  const top1 = users[0] || { username: "Pendiente", points: 0, aliasName: "" };
+  const top2 = users[1] || { username: "Pendiente", points: 0, aliasName: "" };
+  const top3 = users[2] || { username: "Pendiente", points: 0, aliasName: "" };
 
   const podiumUsers = [
-    { rank: 2, username: top2.username, points: top2.points, avatar: top2.username.charAt(0).toUpperCase() },
-    { rank: 1, username: top1.username, points: top1.points, avatar: top1.username.charAt(0).toUpperCase() },
-    { rank: 3, username: top3.username, points: top3.points, avatar: top3.username.charAt(0).toUpperCase() },
+    { rank: 2, username: top2.username, aliasName: top2.aliasName, points: top2.points, avatar: top2.username.charAt(0).toUpperCase() },
+    { rank: 1, username: top1.username, aliasName: top1.aliasName, points: top1.points, avatar: top1.username.charAt(0).toUpperCase() },
+    { rank: 3, username: top3.username, aliasName: top3.aliasName, points: top3.points, avatar: top3.username.charAt(0).toUpperCase() },
   ];
 
   // Si está oculto y no es el administrador, mostramos pantalla premium de espera para el ranking
@@ -275,6 +278,9 @@ export default function LeaderboardPage() {
               <div className="glass-panel p-3 sm:p-5 md:p-6 flex flex-col items-center w-full border-t-4 border-gray-400 bg-gradient-to-b from-gray-400/10 to-transparent">
                 <div className="w-11 h-11 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full bg-gray-500 flex items-center justify-center text-base sm:text-lg md:text-xl font-bold text-white mb-2 sm:mb-3">{podiumUsers[0].avatar}</div>
                 <p style={{ color: '#ffffff' }} className="font-semibold text-xs sm:text-sm mb-0.5 sm:mb-1 truncate max-w-full text-center">{podiumUsers[0].username}</p>
+                {currentUsername.toLowerCase() === "vicdaddy" && podiumUsers[0].aliasName && (
+                  <p className="text-[10px] text-yellow-500 font-bold mb-1 truncate max-w-full text-center">Apodo: {podiumUsers[0].aliasName}</p>
+                )}
                 <p style={{ color: '#d1d5db' }} className="text-base sm:text-lg md:text-xl font-bold">{podiumUsers[0].points} <span className="text-[10px] sm:text-xs">PTS</span></p>
               </div>
             </div>
@@ -288,6 +294,9 @@ export default function LeaderboardPage() {
               <div className="glass-panel p-4 sm:p-6 md:p-8 flex flex-col items-center w-full border-t-4 border-yellow-500 bg-gradient-to-b from-yellow-500/10 to-transparent shadow-[0_0_30px_rgba(234,179,8,0.1)]">
                 <div className="w-14 h-14 sm:w-18 sm:h-18 md:w-20 md:h-20 rounded-full border-2 border-yellow-500 bg-yellow-600 flex items-center justify-center text-xl sm:text-2xl md:text-3xl font-bold mb-2 sm:mb-4 shadow-[0_0_20px_rgba(234,179,8,0.3)]">{podiumUsers[1].avatar}</div>
                 <p style={{ color: '#ffffff' }} className="font-bold text-sm sm:text-base mb-0.5 sm:mb-1 truncate max-w-full text-center">{podiumUsers[1].username}</p>
+                {currentUsername.toLowerCase() === "vicdaddy" && podiumUsers[1].aliasName && (
+                  <p className="text-[10px] text-yellow-500 font-bold mb-1 truncate max-w-full text-center">Apodo: {podiumUsers[1].aliasName}</p>
+                )}
                 <p style={{ color: '#ffffff' }} className="text-xl sm:text-2xl md:text-3xl font-black">{podiumUsers[1].points} <span style={{ color: '#a1a1aa' }} className="text-xs sm:text-sm font-normal">PTS</span></p>
               </div>
             </div>
@@ -300,6 +309,9 @@ export default function LeaderboardPage() {
               <div className="glass-panel p-3 sm:p-5 md:p-6 flex flex-col items-center w-full border-t-4 border-amber-600 bg-gradient-to-b from-amber-600/10 to-transparent">
                 <div className="w-11 h-11 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full bg-amber-700 flex items-center justify-center text-base sm:text-lg md:text-xl font-bold text-white mb-2 sm:mb-3">{podiumUsers[2].avatar}</div>
                 <p style={{ color: '#ffffff' }} className="font-semibold text-xs sm:text-sm mb-0.5 sm:mb-1 truncate max-w-full text-center">{podiumUsers[2].username}</p>
+                {currentUsername.toLowerCase() === "vicdaddy" && podiumUsers[2].aliasName && (
+                  <p className="text-[10px] text-yellow-500 font-bold mb-1 truncate max-w-full text-center">Apodo: {podiumUsers[2].aliasName}</p>
+                )}
                 <p style={{ color: '#f59e0b' }} className="text-base sm:text-lg md:text-xl font-bold">{podiumUsers[2].points} <span className="text-[10px] sm:text-xs">PTS</span></p>
               </div>
             </div>
@@ -343,6 +355,11 @@ export default function LeaderboardPage() {
                             <span style={{ color: isCurrentUser ? '#00b06b' : '#ffffff' }} className="font-semibold text-sm sm:text-base truncate block">
                               {user.username} {isCurrentUser && "(Tú)"}
                             </span>
+                            {currentUsername.toLowerCase() === "vicdaddy" && user.aliasName && (
+                              <span className="text-[11px] text-yellow-500 font-bold block mt-0.5">
+                                Apodo: {user.aliasName}
+                              </span>
+                            )}
                             {/* Exactos visibles solo en mobile debajo del nombre */}
                             <span className="text-xs text-content-muted sm:hidden">
                               {user.exactScores} exactos

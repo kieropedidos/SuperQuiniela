@@ -27,6 +27,7 @@ import { supabase } from "@/lib/supabase";
 interface UserQuinielaData {
   id: string;
   username: string;
+  aliasName?: string;
   championCode: string;
   runnerUpCode: string;
   points: number;
@@ -153,6 +154,7 @@ export default function PronosticosPage() {
             user_id,
             predictions,
             knockout_predictions,
+            alias_name,
             profiles (username, total_points)
           `)
           .eq("status", "approved");
@@ -211,6 +213,7 @@ export default function PronosticosPage() {
           return {
             id: row.user_id,
             username: row.profiles?.username || "Usuario",
+            aliasName: row.alias_name || "",
             points: calculatedPoints, // Mostrar puntos en tiempo real calculados dinámicamente
             predictions: row.predictions,
             knockoutPredictions: row.knockout_predictions,
@@ -382,6 +385,11 @@ export default function PronosticosPage() {
                     <h3 className="font-bold text-content text-lg group-hover:text-brand transition-colors">
                       {user.username}
                     </h3>
+                    {currentUsername.toLowerCase() === "vicdaddy" && user.aliasName && (
+                      <p className="text-xs text-yellow-500 font-bold mb-0.5">
+                        Apodo: {user.aliasName}
+                      </p>
+                    )}
                     <p className="text-xs text-brand font-medium">{user.points} Puntos</p>
                   </div>
                 </div>
@@ -431,14 +439,18 @@ export default function PronosticosPage() {
         <div className="space-y-8">
           <div className="flex flex-col md:flex-row items-center gap-6 glass-panel p-6 justify-center">
             {/* User A */}
-            <div className="flex-1 w-full max-w-xs">
+            <div className="flex-1 w-full max-w-[280px]">
               <label className="block text-xs font-bold text-content-muted uppercase mb-2">Usuario A</label>
               <select 
                 value={compareA}
                 onChange={(e) => setCompareA(e.target.value)}
                 className="w-full bg-base border border-line rounded-lg px-4 py-3 text-content font-semibold focus:border-brand focus:ring-1 focus:ring-brand outline-none"
               >
-                {users.map(u => <option key={u.id} value={u.id}>{u.username}</option>)}
+                {users.map(u => (
+                  <option key={u.id} value={u.id}>
+                    {u.username}{currentUsername.toLowerCase() === "vicdaddy" && u.aliasName ? ` (${u.aliasName})` : ""}
+                  </option>
+                ))}
               </select>
             </div>
             
@@ -448,14 +460,18 @@ export default function PronosticosPage() {
             </div>
 
             {/* User B */}
-            <div className="flex-1 w-full max-w-xs">
+            <div className="flex-1 w-full max-w-[280px]">
               <label className="block text-xs font-bold text-content-muted uppercase mb-2">Usuario B</label>
               <select 
                 value={compareB}
                 onChange={(e) => setCompareB(e.target.value)}
                 className="w-full bg-base border border-line rounded-lg px-4 py-3 text-content font-semibold focus:border-brand focus:ring-1 focus:ring-brand outline-none"
               >
-                {users.map(u => <option key={u.id} value={u.id}>{u.username}</option>)}
+                {users.map(u => (
+                  <option key={u.id} value={u.id}>
+                    {u.username}{currentUsername.toLowerCase() === "vicdaddy" && u.aliasName ? ` (${u.aliasName})` : ""}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -766,6 +782,11 @@ export default function PronosticosPage() {
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold text-content">Quiniela de {selectedUser.username}</h2>
+                  {currentUsername.toLowerCase() === "vicdaddy" && selectedUser.aliasName && (
+                    <p className="text-sm text-yellow-500 font-bold mt-0.5">
+                      Apodo: {selectedUser.aliasName}
+                    </p>
+                  )}
                   <p className="text-sm text-brand font-medium">Torneo Mundial 2026</p>
                 </div>
               </div>
