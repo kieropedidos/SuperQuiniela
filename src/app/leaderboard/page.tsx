@@ -288,57 +288,59 @@ export default function LeaderboardPage() {
       ) : (
         <>
           {/* Podium Section */}
-          <div className="flex items-end justify-center gap-2 sm:gap-4 md:gap-8 mb-10 md:mb-16 h-52 sm:h-60 md:h-64 px-2">
+          <div className="flex items-end justify-center gap-1.5 sm:gap-4 md:gap-8 mb-6 sm:mb-10 md:mb-16 h-44 sm:h-60 md:h-64 px-1 sm:px-2">
             
             {/* Second Place */}
-            <div className="flex flex-col items-center relative z-10 translate-y-6 sm:translate-y-8 flex-1 max-w-[120px] sm:max-w-[140px] md:max-w-[160px]">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gray-400 flex items-center justify-center absolute -top-3 sm:-top-4 z-20 shadow-md">
-                <Medal size={14} className="text-white" />
+            <div className="flex flex-col items-center relative z-10 translate-y-4 sm:translate-y-8 flex-1 max-w-[105px] sm:max-w-[140px] md:max-w-[160px]">
+              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gray-400 flex items-center justify-center absolute -top-2.5 sm:-top-4 z-20 shadow-md">
+                <Medal size={12} className="text-white sm:hidden" />
+                <Medal size={14} className="text-white hidden sm:block" />
               </div>
-              <div className="glass-panel p-3 sm:p-5 md:p-6 flex flex-col items-center w-full border-t-4 border-gray-400 bg-gradient-to-b from-gray-400/10 to-transparent">
-                <div className="w-11 h-11 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full bg-gray-500 flex items-center justify-center text-base sm:text-lg md:text-xl font-bold text-white mb-2 sm:mb-3">{podiumUsers[0].avatar}</div>
-                <p style={{ color: '#ffffff' }} className="font-semibold text-xs sm:text-sm mb-0.5 sm:mb-1 truncate max-w-full text-center">{podiumUsers[0].username}</p>
+              <div className="glass-panel p-2.5 sm:p-5 md:p-6 flex flex-col items-center w-full border-t-3 sm:border-t-4 border-gray-400 bg-gradient-to-b from-gray-400/10 to-transparent">
+                <div className="w-9 h-9 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full bg-gray-500 flex items-center justify-center text-sm sm:text-lg md:text-xl font-bold text-white mb-1.5 sm:mb-3">{podiumUsers[0].avatar}</div>
+                <p style={{ color: '#ffffff' }} className="font-semibold text-[11px] sm:text-sm mb-0.5 truncate max-w-full text-center">{podiumUsers[0].username}</p>
                 {currentUsername.toLowerCase() === "vicdaddy" && podiumUsers[0].aliasName && (
-                  <p className="text-[10px] text-yellow-500 font-bold mb-1 truncate max-w-full text-center">Apodo: {podiumUsers[0].aliasName}</p>
+                  <p className="text-[9px] text-yellow-500 font-bold mb-0.5 truncate max-w-full text-center">Apodo: {podiumUsers[0].aliasName}</p>
                 )}
-                <p style={{ color: '#d1d5db' }} className="text-base sm:text-lg md:text-xl font-bold">{podiumUsers[0].points} <span className="text-[10px] sm:text-xs">PTS</span></p>
+                <p style={{ color: '#d1d5db' }} className="text-sm sm:text-lg md:text-xl font-bold">{podiumUsers[0].points} <span className="text-[9px] sm:text-xs">PTS</span></p>
               </div>
             </div>
 
             {/* First Place */}
-            <div className="flex flex-col items-center relative z-20 -translate-y-2 sm:-translate-y-4 flex-1 max-w-[130px] sm:max-w-[160px] md:max-w-[192px]">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-yellow-500 flex items-center justify-center absolute -top-4 sm:-top-5 z-20 shadow-[0_0_15px_rgba(234,179,8,0.5)]">
-                <Trophy size={16} className="text-white sm:hidden" />
+            <div className="flex flex-col items-center relative z-20 -translate-y-1 sm:-translate-y-4 flex-1 max-w-[115px] sm:max-w-[160px] md:max-w-[192px]">
+              <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-full bg-yellow-500 flex items-center justify-center absolute -top-3 sm:-top-5 z-20 shadow-[0_0_15px_rgba(234,179,8,0.5)]">
+                <Trophy size={14} className="text-white sm:hidden" />
                 <Trophy size={20} className="text-white hidden sm:block" />
               </div>
-              <div className="glass-panel p-4 sm:p-6 md:p-8 flex flex-col items-center w-full border-t-4 border-yellow-500 bg-gradient-to-b from-yellow-500/10 to-transparent shadow-[0_0_30px_rgba(234,179,8,0.15)] relative overflow-hidden podium-glow-first">
+              <div className="glass-panel p-3 sm:p-6 md:p-8 flex flex-col items-center w-full border-t-3 sm:border-t-4 border-yellow-500 bg-gradient-to-b from-yellow-500/10 to-transparent shadow-[0_0_30px_rgba(234,179,8,0.15)] relative overflow-hidden podium-glow-first">
                 {/* Floating sparkles */}
                 <span className="sparkle-particle animate-sparkle-1 w-1.5 h-1.5 bg-yellow-500/70 left-[15%] bottom-[10%]"></span>
                 <span className="sparkle-particle animate-sparkle-2 w-1 h-1 bg-yellow-400/80 left-[80%] bottom-[20%]"></span>
                 <span className="sparkle-particle animate-sparkle-3 w-2 h-2 bg-yellow-600/60 left-[45%] bottom-[5%]"></span>
                 <span className="sparkle-particle animate-sparkle-4 w-1.5 h-1.5 bg-amber-400/70 left-[70%] bottom-[40%]"></span>
                 
-                <div className="w-14 h-14 sm:w-18 sm:h-18 md:w-20 md:h-20 rounded-full border-2 border-yellow-500 bg-yellow-600 flex items-center justify-center text-xl sm:text-2xl md:text-3xl font-bold mb-2 sm:mb-4 shadow-[0_0_20px_rgba(234,179,8,0.3)]">{podiumUsers[1].avatar}</div>
-                <p style={{ color: '#ffffff' }} className="font-bold text-sm sm:text-base mb-0.5 sm:mb-1 truncate max-w-full text-center">{podiumUsers[1].username}</p>
+                <div className="w-11 h-11 sm:w-18 sm:h-18 md:w-20 md:h-20 rounded-full border-2 border-yellow-500 bg-yellow-600 flex items-center justify-center text-lg sm:text-2xl md:text-3xl font-bold mb-1.5 sm:mb-4 shadow-[0_0_20px_rgba(234,179,8,0.3)]">{podiumUsers[1].avatar}</div>
+                <p style={{ color: '#ffffff' }} className="font-bold text-xs sm:text-base mb-0.5 truncate max-w-full text-center">{podiumUsers[1].username}</p>
                 {currentUsername.toLowerCase() === "vicdaddy" && podiumUsers[1].aliasName && (
-                  <p className="text-[10px] text-yellow-500 font-bold mb-1 truncate max-w-full text-center">Apodo: {podiumUsers[1].aliasName}</p>
+                  <p className="text-[9px] text-yellow-500 font-bold mb-0.5 truncate max-w-full text-center">Apodo: {podiumUsers[1].aliasName}</p>
                 )}
-                <p style={{ color: '#ffffff' }} className="text-xl sm:text-2xl md:text-3xl font-black">{podiumUsers[1].points} <span style={{ color: '#a1a1aa' }} className="text-xs sm:text-sm font-normal">PTS</span></p>
+                <p style={{ color: '#ffffff' }} className="text-lg sm:text-2xl md:text-3xl font-black">{podiumUsers[1].points} <span style={{ color: '#a1a1aa' }} className="text-[10px] sm:text-sm font-normal">PTS</span></p>
               </div>
             </div>
 
             {/* Third Place */}
-            <div className="flex flex-col items-center relative z-10 translate-y-8 sm:translate-y-10 md:translate-y-12 flex-1 max-w-[120px] sm:max-w-[140px] md:max-w-[160px]">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-amber-600 flex items-center justify-center absolute -top-3 sm:-top-4 z-20 shadow-md">
-                <Medal size={14} className="text-white" />
+            <div className="flex flex-col items-center relative z-10 translate-y-6 sm:translate-y-10 md:translate-y-12 flex-1 max-w-[105px] sm:max-w-[140px] md:max-w-[160px]">
+              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-amber-600 flex items-center justify-center absolute -top-2.5 sm:-top-4 z-20 shadow-md">
+                <Medal size={12} className="text-white sm:hidden" />
+                <Medal size={14} className="text-white hidden sm:block" />
               </div>
-              <div className="glass-panel p-3 sm:p-5 md:p-6 flex flex-col items-center w-full border-t-4 border-amber-600 bg-gradient-to-b from-amber-600/10 to-transparent">
-                <div className="w-11 h-11 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full bg-amber-700 flex items-center justify-center text-base sm:text-lg md:text-xl font-bold text-white mb-2 sm:mb-3">{podiumUsers[2].avatar}</div>
-                <p style={{ color: '#ffffff' }} className="font-semibold text-xs sm:text-sm mb-0.5 sm:mb-1 truncate max-w-full text-center">{podiumUsers[2].username}</p>
+              <div className="glass-panel p-2.5 sm:p-5 md:p-6 flex flex-col items-center w-full border-t-3 sm:border-t-4 border-amber-600 bg-gradient-to-b from-amber-600/10 to-transparent">
+                <div className="w-9 h-9 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full bg-amber-700 flex items-center justify-center text-sm sm:text-lg md:text-xl font-bold text-white mb-1.5 sm:mb-3">{podiumUsers[2].avatar}</div>
+                <p style={{ color: '#ffffff' }} className="font-semibold text-[11px] sm:text-sm mb-0.5 truncate max-w-full text-center">{podiumUsers[2].username}</p>
                 {currentUsername.toLowerCase() === "vicdaddy" && podiumUsers[2].aliasName && (
-                  <p className="text-[10px] text-yellow-500 font-bold mb-1 truncate max-w-full text-center">Apodo: {podiumUsers[2].aliasName}</p>
+                  <p className="text-[9px] text-yellow-500 font-bold mb-0.5 truncate max-w-full text-center">Apodo: {podiumUsers[2].aliasName}</p>
                 )}
-                <p style={{ color: '#f59e0b' }} className="text-base sm:text-lg md:text-xl font-bold">{podiumUsers[2].points} <span className="text-[10px] sm:text-xs">PTS</span></p>
+                <p style={{ color: '#f59e0b' }} className="text-sm sm:text-lg md:text-xl font-bold">{podiumUsers[2].points} <span className="text-[9px] sm:text-xs">PTS</span></p>
               </div>
             </div>
 
@@ -346,20 +348,20 @@ export default function LeaderboardPage() {
 
           {/* Leaderboard Table */}
           <div className="glass-panel overflow-hidden">
-            <table className="w-full text-left border-collapse">
+            {/* Desktop Table */}
+            <table className="w-full text-left border-collapse hidden sm:table">
               <thead>
                 <tr className="bg-card border-b border-line text-xs uppercase tracking-wider text-content-muted">
-                  <th className="p-3 sm:p-4 font-semibold w-12">#</th>
-                  <th className="p-3 sm:p-4 font-semibold">Usuario</th>
-                  <th className="p-3 sm:p-4 font-semibold text-center hidden sm:table-cell">Exactos</th>
-                  <th className="p-3 sm:p-4 font-semibold text-right">Puntos</th>
+                  <th className="p-4 font-semibold w-16">#</th>
+                  <th className="p-4 font-semibold">Usuario</th>
+                  <th className="p-4 font-semibold text-center">Exactos</th>
+                  <th className="p-4 font-semibold text-right">Puntos</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
                 {filteredUsers.map((user, idx) => {
                   const rank = idx + 1;
                   const isCurrentUser = user.id === currentUserId;
-
                   return (
                     <tr 
                       key={user.id} 
@@ -367,67 +369,86 @@ export default function LeaderboardPage() {
                         isCurrentUser ? "bg-brand/5 border-l-4 border-brand" : ""
                       }`}
                     >
-                      <td className="p-3 sm:p-4">
+                      <td className="p-4">
                         <div className="flex items-center gap-1.5">
                           <span className="font-bold text-content-muted w-4">{rank}</span>
                           {(() => {
                             const trend = getTrend(user.id);
-                            if (trend.type === "up") {
-                              return (
-                                <span className="text-[10px] font-extrabold text-emerald-500 flex items-center" title={`Subió ${trend.diff} posiciones`}>
-                                  ▲{trend.diff}
-                                </span>
-                              );
-                            }
-                            if (trend.type === "down") {
-                              return (
-                                <span className="text-[10px] font-extrabold text-rose-500 flex items-center" title={`Bajó ${trend.diff} posiciones`}>
-                                  ▼{trend.diff}
-                                </span>
-                              );
-                            }
-                            return (
-                              <span className="text-[10px] font-bold text-slate-600 flex items-center justify-center w-3" title="Estable">
-                                ▬
-                              </span>
-                            );
+                            if (trend.type === "up") return <span className="text-[10px] font-extrabold text-emerald-500">▲{trend.diff}</span>;
+                            if (trend.type === "down") return <span className="text-[10px] font-extrabold text-rose-500">▼{trend.diff}</span>;
+                            return <span className="text-[10px] font-bold text-slate-600 w-3 text-center">▬</span>;
                           })()}
                         </div>
                       </td>
-                      <td className="p-3 sm:p-4">
-                        <div className="flex items-center gap-2 sm:gap-3">
-                          <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
                             isCurrentUser ? "bg-brand/20 text-brand" : "bg-line text-content-muted"
-                          }`}>
-                            {user.username.charAt(0).toUpperCase()}
-                          </div>
+                          }`}>{user.username.charAt(0).toUpperCase()}</div>
                           <div className="min-w-0">
-                            <span style={{ color: isCurrentUser ? '#00b06b' : '#ffffff' }} className="font-semibold text-sm sm:text-base truncate block">
+                            <span style={{ color: isCurrentUser ? '#00b06b' : '#ffffff' }} className="font-semibold text-base truncate block">
                               {user.username} {isCurrentUser && "(Tú)"}
                             </span>
                             {currentUsername.toLowerCase() === "vicdaddy" && user.aliasName && (
-                              <span className="text-[11px] text-yellow-500 font-bold block mt-0.5">
-                                Apodo: {user.aliasName}
-                              </span>
+                              <span className="text-[11px] text-yellow-500 font-bold block mt-0.5">Apodo: {user.aliasName}</span>
                             )}
-                            {/* Exactos visibles solo en mobile debajo del nombre */}
-                            <span className="text-xs text-content-muted sm:hidden">
-                              {user.exactScores} exactos
-                            </span>
                           </div>
                         </div>
                       </td>
-                      <td className="p-3 sm:p-4 text-center text-content-muted font-medium hidden sm:table-cell">
-                        {user.exactScores}
-                      </td>
-                      <td className="p-3 sm:p-4 text-right font-bold text-brand whitespace-nowrap">
-                        {user.points.toLocaleString()}
-                      </td>
+                      <td className="p-4 text-center text-content-muted font-medium">{user.exactScores}</td>
+                      <td className="p-4 text-right font-bold text-brand whitespace-nowrap">{user.points.toLocaleString()}</td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+
+            {/* Mobile List */}
+            <div className="sm:hidden divide-y divide-line/50">
+              {filteredUsers.map((user, idx) => {
+                const rank = idx + 1;
+                const isCurrentUser = user.id === currentUserId;
+                const rankColor = rank === 1 ? "bg-yellow-500 text-black" : rank === 2 ? "bg-gray-400 text-white" : rank === 3 ? "bg-amber-600 text-white" : "bg-line/80 text-content-muted";
+                return (
+                  <div
+                    key={user.id}
+                    className={`flex items-center gap-2.5 px-3 py-2.5 transition-colors active:bg-card/50 ${
+                      isCurrentUser ? "bg-brand/5 border-l-3 border-brand" : ""
+                    }`}
+                  >
+                    {/* Rank Badge */}
+                    <div className="flex flex-col items-center gap-0.5 shrink-0 w-8">
+                      <span className={`w-6 h-6 rounded-md flex items-center justify-center text-[11px] font-black ${rankColor}`}>{rank}</span>
+                      {(() => {
+                        const trend = getTrend(user.id);
+                        if (trend.type === "up") return <span className="text-[9px] font-extrabold text-emerald-500 leading-none">▲{trend.diff}</span>;
+                        if (trend.type === "down") return <span className="text-[9px] font-extrabold text-rose-500 leading-none">▼{trend.diff}</span>;
+                        return <span className="text-[9px] font-bold text-slate-600 leading-none">—</span>;
+                      })()}
+                    </div>
+                    {/* Avatar */}
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                      isCurrentUser ? "bg-brand/20 text-brand" : "bg-line text-content-muted"
+                    }`}>{user.username.charAt(0).toUpperCase()}</div>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <span style={{ color: isCurrentUser ? '#00b06b' : '#ffffff' }} className="font-semibold text-[13px] truncate block leading-tight">
+                        {user.username} {isCurrentUser && "(Tú)"}
+                      </span>
+                      {currentUsername.toLowerCase() === "vicdaddy" && user.aliasName && (
+                        <span className="text-[10px] text-yellow-500 font-bold block">Apodo: {user.aliasName}</span>
+                      )}
+                      <span className="text-[11px] text-content-muted">{user.exactScores} exactos</span>
+                    </div>
+                    {/* Points */}
+                    <div className="shrink-0 text-right">
+                      <span className="text-brand font-black text-base leading-none block">{user.points}</span>
+                      <span className="text-[9px] text-content-muted font-medium">PTS</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </>
       )}
