@@ -199,18 +199,6 @@ export default function PronosticosPage() {
         doc.setTextColor(0, 176, 107); // Brand Green
         doc.text(user.username, 37, 21);
 
-        if (user.aliasName) {
-          doc.setFont("helvetica", "normal");
-          doc.setTextColor(156, 163, 175);
-          doc.text(" (", doc.getTextWidth(user.username) + 37, 21);
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(234, 179, 8); // Yellow
-          doc.text(user.aliasName, doc.getTextWidth(user.username) + 39, 21);
-          doc.setFont("helvetica", "normal");
-          doc.setTextColor(156, 163, 175);
-          doc.text(")", doc.getTextWidth(user.username) + doc.getTextWidth(user.aliasName) + 39, 21);
-        }
-
         doc.setFont("helvetica", "normal");
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(9);
