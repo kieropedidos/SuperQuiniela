@@ -35,6 +35,8 @@ interface UserQuinielaData {
   knockoutPredictions: Record<string, MatchPrediction>;
 }
 
+const flagCache: Record<string, string> = {};
+
 // ---------------------------------------------------------------------------
 // PÁGINA PRINCIPAL: HUB DE PRONÓSTICOS
 // ---------------------------------------------------------------------------
@@ -93,6 +95,73 @@ export default function PronosticosPage() {
       const { default: jsPDF } = await import("jspdf");
       const { default: autoTable } = await import("jspdf-autotable");
 
+      // 1. Cargar todas las banderas en base64 si no están en caché
+      const teamsList = Object.values(TEAMS);
+      const flagPromises = teamsList.map(async (team) => {
+        if (flagCache[team.iso2]) return;
+        try {
+          const url = `https://flagcdn.com/w20/${team.iso2}.png`;
+          const res = await fetch(url);
+          const blob = await res.blob();
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+          flagCache[team.iso2] = base64;
+        } catch (err) {
+          console.error(`Error cargando bandera de ${team.name}:`, err);
+        }
+      });
+      await Promise.all(flagPromises);
+
+      // 2. Preparar la lista de usuarios incluyendo a Vicdaddy si no está en el listado de aprobados
+      let pdfUsers = [...users];
+      const hasVicdaddy = pdfUsers.some(u => u.username.toLowerCase() === "vicdaddy");
+      if (!hasVicdaddy) {
+        const { data: allQ } = await supabase
+          .from("user_quinielas")
+          .select(`
+            user_id,
+            predictions,
+            knockout_predictions,
+            alias_name,
+            profiles (username)
+          `);
+        
+        const vicdaddyRow = (allQ || []).find((row: any) => row.profiles?.username?.toLowerCase() === "vicdaddy");
+        if (vicdaddyRow) {
+          // Cargar partidos oficiales para calcular el puntaje actual
+          const { data: officialMatchesData } = await supabase
+            .from("official_matches")
+            .select("*");
+          const officialMatches = officialMatchesData || [];
+          
+          const scoring = calculateUserPoints(
+            vicdaddyRow.predictions || {},
+            vicdaddyRow.knockout_predictions || {},
+            officialMatches
+          );
+          
+          pdfUsers.push({
+            id: vicdaddyRow.user_id,
+            username: (vicdaddyRow.profiles as any)?.username || "Vicdaddy",
+            aliasName: vicdaddyRow.alias_name || "",
+            points: scoring.totalPoints,
+            predictions: vicdaddyRow.predictions || {},
+            knockoutPredictions: vicdaddyRow.knockout_predictions || {},
+            championCode: "TBD",
+            runnerUpCode: "TBD"
+          });
+        }
+      }
+
+      // Ordenar por puntos (manteniendo a los mejores arriba)
+      pdfUsers.sort((a, b) => b.points - a.points);
+      console.log("PDF Users Count:", pdfUsers.length);
+      console.log("PDF Users list:", pdfUsers.map(u => u.username));
+
       const doc = new jsPDF({
         orientation: "portrait",
         unit: "mm",
@@ -107,7 +176,7 @@ export default function PronosticosPage() {
         return a.matchday - b.matchday;
       });
 
-      users.forEach((user, index) => {
+      pdfUsers.forEach((user, index) => {
         if (index > 0) {
           doc.addPage();
         }
@@ -164,7 +233,7 @@ export default function PronosticosPage() {
           const predStr = (pred && pred.homeGoals !== null && pred.awayGoals !== null) 
             ? `${pred.homeGoals} - ${pred.awayGoals}` 
             : "-";
-          leftTableData.push([match.group, `${match.homeTeam} vs ${match.awayTeam}`, predStr]);
+          leftTableData.push([match.group, "", match.homeTeam, "vs", match.awayTeam, "", predStr]);
         }
 
         for (let i = 36; i < 72; i++) {
@@ -173,47 +242,19 @@ export default function PronosticosPage() {
           const predStr = (pred && pred.homeGoals !== null && pred.awayGoals !== null) 
             ? `${pred.homeGoals} - ${pred.awayGoals}` 
             : "-";
-          rightTableData.push([match.group, `${match.homeTeam} vs ${match.awayTeam}`, predStr]);
+          rightTableData.push([match.group, "", match.homeTeam, "vs", match.awayTeam, "", predStr]);
         }
 
         // Dibujar Tabla Izquierda
         autoTable(doc, {
-          head: [["Grupo", "Partido", "Pronóstico"]],
+          head: [["G", "", "Local", "vs", "Vis.", "", "Pronóstico"]],
           body: leftTableData,
           startY: 38,
           margin: { left: 14, right: 108 },
           styles: { 
             fontSize: 7.5, 
-            cellPadding: 1.5,
-            fillColor: [248, 250, 252], // Slate-50
-            textColor: [15, 23, 42],     // Slate-900
-            lineColor: [226, 232, 240],   // Slate-200
-            lineWidth: 0.1,
-          },
-          headStyles: {
-            fillColor: [15, 23, 42],
-            textColor: [255, 255, 255],
-            fontSize: 8,
-            fontStyle: "bold",
-          },
-          columnStyles: {
-            0: { cellWidth: 12, halign: "center" },
-            1: { cellWidth: 46 },
-            2: { cellWidth: 24, halign: "center", fontStyle: "bold" },
-          },
-          theme: "grid",
-        });
-
-        // Dibujar Tabla Derecha (en la misma posición Y de inicio)
-        autoTable(doc, {
-          head: [["Grupo", "Partido", "Pronóstico"]],
-          body: rightTableData,
-          startY: 38,
-          margin: { left: 110, right: 14 },
-          styles: { 
-            fontSize: 7.5, 
-            cellPadding: 1.5,
-            fillColor: [248, 250, 252],
+            cellPadding: 1.6,
+            fillColor: [255, 255, 255],
             textColor: [15, 23, 42],
             lineColor: [226, 232, 240],
             lineWidth: 0.1,
@@ -221,21 +262,105 @@ export default function PronosticosPage() {
           headStyles: {
             fillColor: [15, 23, 42],
             textColor: [255, 255, 255],
-            fontSize: 8,
+            fontSize: 7.5,
             fontStyle: "bold",
           },
+          alternateRowStyles: {
+            fillColor: [248, 250, 252],
+          },
           columnStyles: {
-            0: { cellWidth: 12, halign: "center" },
-            1: { cellWidth: 46 },
-            2: { cellWidth: 24, halign: "center", fontStyle: "bold" },
+            0: { cellWidth: 8, halign: "center" },
+            1: { cellWidth: 8, halign: "center" }, // Espacio para Bandera Local
+            2: { cellWidth: 14, halign: "right", fontStyle: "bold" },
+            3: { cellWidth: 8, halign: "center", textColor: [156, 163, 175] },
+            4: { cellWidth: 14, halign: "left", fontStyle: "bold" },
+            5: { cellWidth: 8, halign: "center" }, // Espacio para Bandera Vis.
+            6: { cellWidth: 28, halign: "center", fontStyle: "bold", textColor: [0, 176, 107] },
           },
           theme: "grid",
+          didDrawCell: (data) => {
+            if (data.section === "body") {
+              const rowIndex = data.row.index;
+              const match = sortedMatches[rowIndex];
+              if (data.column.index === 1) {
+                const base64 = flagCache[TEAMS[match.homeTeam]?.iso2];
+                if (base64) {
+                  const x = data.cell.x + (data.cell.width - 5.5) / 2;
+                  const y = data.cell.y + (data.cell.height - 3.8) / 2;
+                  doc.addImage(base64, "PNG", x, y, 5.5, 3.8);
+                }
+              } else if (data.column.index === 5) {
+                const base64 = flagCache[TEAMS[match.awayTeam]?.iso2];
+                if (base64) {
+                  const x = data.cell.x + (data.cell.width - 5.5) / 2;
+                  const y = data.cell.y + (data.cell.height - 3.8) / 2;
+                  doc.addImage(base64, "PNG", x, y, 5.5, 3.8);
+                }
+              }
+            }
+          }
+        });
+
+        // Dibujar Tabla Derecha (en la misma posición Y de inicio)
+        autoTable(doc, {
+          head: [["G", "", "Local", "vs", "Vis.", "", "Pronóstico"]],
+          body: rightTableData,
+          startY: 38,
+          margin: { left: 110, right: 14 },
+          styles: { 
+            fontSize: 7.5, 
+            cellPadding: 1.6,
+            fillColor: [255, 255, 255],
+            textColor: [15, 23, 42],
+            lineColor: [226, 232, 240],
+            lineWidth: 0.1,
+          },
+          headStyles: {
+            fillColor: [15, 23, 42],
+            textColor: [255, 255, 255],
+            fontSize: 7.5,
+            fontStyle: "bold",
+          },
+          alternateRowStyles: {
+            fillColor: [248, 250, 252],
+          },
+          columnStyles: {
+            0: { cellWidth: 8, halign: "center" },
+            1: { cellWidth: 8, halign: "center" }, // Espacio para Bandera Local
+            2: { cellWidth: 14, halign: "right", fontStyle: "bold" },
+            3: { cellWidth: 8, halign: "center", textColor: [156, 163, 175] },
+            4: { cellWidth: 14, halign: "left", fontStyle: "bold" },
+            5: { cellWidth: 8, halign: "center" }, // Espacio para Bandera Vis.
+            6: { cellWidth: 28, halign: "center", fontStyle: "bold", textColor: [0, 176, 107] },
+          },
+          theme: "grid",
+          didDrawCell: (data) => {
+            if (data.section === "body") {
+              const rowIndex = data.row.index;
+              const match = sortedMatches[36 + rowIndex];
+              if (data.column.index === 1) {
+                const base64 = flagCache[TEAMS[match.homeTeam]?.iso2];
+                if (base64) {
+                  const x = data.cell.x + (data.cell.width - 5.5) / 2;
+                  const y = data.cell.y + (data.cell.height - 3.8) / 2;
+                  doc.addImage(base64, "PNG", x, y, 5.5, 3.8);
+                }
+              } else if (data.column.index === 5) {
+                const base64 = flagCache[TEAMS[match.awayTeam]?.iso2];
+                if (base64) {
+                  const x = data.cell.x + (data.cell.width - 5.5) / 2;
+                  const y = data.cell.y + (data.cell.height - 3.8) / 2;
+                  doc.addImage(base64, "PNG", x, y, 5.5, 3.8);
+                }
+              }
+            }
+          }
         });
 
         // Agregar pie de página para cada usuario
         doc.setFontSize(7);
         doc.setTextColor(148, 163, 184); // Slate-400
-        doc.text(`SuperQuiniela 2026 - Pág. ${index + 1} de ${users.length}`, 14, 287);
+        doc.text(`SuperQuiniela 2026 - Pág. ${index + 1} de ${pdfUsers.length}`, 14, 287);
         doc.text("Transparencia y deportividad · Todos los pronósticos están congelados al inicio del torneo.", 75, 287);
       });
 
