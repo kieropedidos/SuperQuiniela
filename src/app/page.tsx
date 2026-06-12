@@ -966,102 +966,150 @@ export default function PronosticosPage() {
                   return (
                     <div
                       key={match.id}
-                      className={`p-4 flex flex-col md:flex-row items-center justify-between transition-colors gap-4 ${getComparisonStyle(userAPred, userBPred)}`}
+                      className={`p-3 md:p-4 transition-colors ${getComparisonStyle(userAPred, userBPred)}`}
                     >
-                      {/* Usuario A */}
-                      <div className="flex-1 w-full flex items-center justify-between gap-3 md:justify-end">
-                        {/* Equipos A */}
-                        <div className="flex items-center gap-2 min-w-0 md:justify-end flex-1">
-                          {homeA ? (
-                            <>
-                              <span className="font-semibold text-content text-xs sm:text-sm truncate md:order-1">
-                                {homeA.name}
+                      {/* ===== MOBILE LAYOUT (< md) ===== */}
+                      <div className="md:hidden space-y-2">
+                        {/* Match Header: Teams + Official */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                            {homeA ? (
+                              <>
+                                <Flag iso2={homeA.iso2} name={homeA.name} size="sm" />
+                                <span className="font-bold text-content text-xs">{homeACode}</span>
+                              </>
+                            ) : (
+                              <span className="text-[10px] text-content-muted">TBD</span>
+                            )}
+                            <span className="text-content-muted text-[10px] font-bold">vs</span>
+                            {awayA ? (
+                              <>
+                                <Flag iso2={awayA.iso2} name={awayA.name} size="sm" />
+                                <span className="font-bold text-content text-xs">{awayACode}</span>
+                              </>
+                            ) : (
+                              <span className="text-[10px] text-content-muted">TBD</span>
+                            )}
+                          </div>
+                          {/* Match ID + Official */}
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-[9px] font-bold text-brand uppercase">{match.id}</span>
+                            {official ? (
+                              <span className="text-[10px] font-extrabold text-content bg-base border border-line px-1.5 py-0.5 rounded">
+                                {official.home_goals}-{official.away_goals}
                               </span>
-                              <div className="md:order-2 shrink-0">
-                                <Flag iso2={homeA.iso2} name={homeA.name} size="md" />
-                              </div>
-                            </>
-                          ) : (
-                            <span className="text-xs text-content-muted italic">TBD</span>
-                          )}
-                          <span className="text-content-muted font-bold text-xs mx-1 md:order-3">vs</span>
-                          {awayA ? (
-                            <>
-                              <div className="shrink-0 md:order-4">
-                                <Flag iso2={awayA.iso2} name={awayA.name} size="md" />
-                              </div>
-                              <span className="font-semibold text-content text-xs sm:text-sm truncate md:order-5">
-                                {awayA.name}
-                              </span>
-                            </>
-                          ) : (
-                            <span className="text-xs text-content-muted italic">TBD</span>
-                          )}
+                            ) : (
+                              <span className="text-[9px] text-content-muted font-bold bg-base border border-line/40 px-1 py-0.5 rounded">TBD</span>
+                            )}
+                          </div>
                         </div>
 
-                        {/* Pronóstico A */}
-                        <div className="flex items-center gap-2 shrink-0 md:ml-3">
-                          <div className="flex items-center gap-1 bg-base px-2 py-1 rounded border border-line text-xs font-extrabold text-content shadow-sm">
-                            <span>{userAPred?.homeGoals ?? "-"}</span>
-                            <span className="text-content-muted">:</span>
-                            <span>{userAPred?.awayGoals ?? "-"}</span>
+                        {/* User Predictions Side by Side */}
+                        <div className="flex items-stretch gap-2">
+                          {/* User A */}
+                          <div className="flex-1 flex items-center justify-between gap-1.5 bg-base/50 rounded-lg px-2.5 py-1.5 border border-line/30">
+                            <span className="text-[10px] text-content-muted font-bold truncate max-w-[60px]">{userA?.username?.split(' ')[0] ?? "A"}</span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="text-xs font-extrabold text-content">
+                                {userAPred?.homeGoals ?? "-"}:{userAPred?.awayGoals ?? "-"}
+                              </span>
+                              {renderPointsBadge(ptsA, userAPred, official)}
+                            </div>
                           </div>
-                          {renderPointsBadge(ptsA, userAPred, official)}
+                          {/* User B */}
+                          <div className="flex-1 flex items-center justify-between gap-1.5 bg-base/50 rounded-lg px-2.5 py-1.5 border border-line/30">
+                            <span className="text-[10px] text-content-muted font-bold truncate max-w-[60px]">{userB?.username?.split(' ')[0] ?? "B"}</span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="text-xs font-extrabold text-content">
+                                {userBPred?.homeGoals ?? "-"}:{userBPred?.awayGoals ?? "-"}
+                              </span>
+                              {renderPointsBadge(ptsB, userBPred, official)}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-
-                      {/* Resultado Oficial + Diferencia de Puntos */}
-                      <div className="shrink-0 flex md:flex-col items-center justify-between md:justify-center px-4 bg-panel/35 py-2 md:py-2 rounded-xl md:rounded-2xl border border-line/40 gap-3 w-full md:w-28 shadow-sm">
-                        <span className="text-[10px] font-bold text-brand uppercase tracking-wider">{match.id}</span>
-                        {official ? (
-                          <div className="flex items-center gap-1 text-xs font-extrabold text-content bg-base border border-line px-2.5 py-1 rounded-lg shadow-inner">
-                            {official.home_goals} - {official.away_goals}
+                        {/* Diff Badge Mobile */}
+                        {official && (
+                          <div className="flex justify-center">
+                            {renderDiffBadge(ptsA, ptsB, official)}
                           </div>
-                        ) : (
-                          <span className="text-[10px] text-content-muted font-bold bg-base border border-line/40 px-2 py-0.5 rounded-md">TBD</span>
                         )}
-                        {renderDiffBadge(ptsA, ptsB, official)}
                       </div>
 
-                      {/* Usuario B */}
-                      <div className="flex-1 w-full flex items-center justify-between gap-3">
-                        {/* Pronóstico B */}
-                        <div className="flex items-center gap-2 shrink-0 md:mr-3">
-                          {renderPointsBadge(ptsB, userBPred, official)}
-                          <div className="flex items-center gap-1 bg-base px-2 py-1 rounded border border-line text-xs font-extrabold text-content shadow-sm">
-                            <span>{userBPred?.homeGoals ?? "-"}</span>
-                            <span className="text-content-muted">:</span>
-                            <span>{userBPred?.awayGoals ?? "-"}</span>
+                      {/* ===== DESKTOP LAYOUT (>= md) ===== */}
+                      <div className="hidden md:flex items-center justify-between gap-4">
+                        {/* Usuario A */}
+                        <div className="flex-1 flex items-center justify-end gap-3">
+                          <div className="flex items-center gap-2 min-w-0 justify-end flex-1">
+                            {homeA ? (
+                              <>
+                                <span className="font-semibold text-content text-sm truncate">{homeA.name}</span>
+                                <Flag iso2={homeA.iso2} name={homeA.name} size="md" />
+                              </>
+                            ) : (
+                              <span className="text-xs text-content-muted italic">TBD</span>
+                            )}
+                            <span className="text-content-muted font-bold text-xs mx-1">vs</span>
+                            {awayA ? (
+                              <>
+                                <Flag iso2={awayA.iso2} name={awayA.name} size="md" />
+                                <span className="font-semibold text-content text-sm truncate">{awayA.name}</span>
+                              </>
+                            ) : (
+                              <span className="text-xs text-content-muted italic">TBD</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0 ml-3">
+                            <div className="flex items-center gap-1 bg-base px-2 py-1 rounded border border-line text-xs font-extrabold text-content shadow-sm">
+                              <span>{userAPred?.homeGoals ?? "-"}</span>
+                              <span className="text-content-muted">:</span>
+                              <span>{userAPred?.awayGoals ?? "-"}</span>
+                            </div>
+                            {renderPointsBadge(ptsA, userAPred, official)}
                           </div>
                         </div>
 
-                        {/* Equipos B */}
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          {homeB ? (
-                            <>
-                              <div className="shrink-0">
+                        {/* Resultado Oficial + Diferencia */}
+                        <div className="shrink-0 flex flex-col items-center justify-center px-4 bg-panel/35 py-2 rounded-2xl border border-line/40 gap-1.5 w-28 shadow-sm">
+                          <span className="text-[10px] font-bold text-brand uppercase tracking-wider">{match.id}</span>
+                          {official ? (
+                            <div className="flex items-center gap-1 text-xs font-extrabold text-content bg-base border border-line px-2.5 py-1 rounded-lg shadow-inner">
+                              {official.home_goals} - {official.away_goals}
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-content-muted font-bold bg-base border border-line/40 px-2 py-0.5 rounded-md">TBD</span>
+                          )}
+                          {renderDiffBadge(ptsA, ptsB, official)}
+                        </div>
+
+                        {/* Usuario B */}
+                        <div className="flex-1 flex items-center justify-start gap-3">
+                          <div className="flex items-center gap-2 shrink-0 mr-3">
+                            {renderPointsBadge(ptsB, userBPred, official)}
+                            <div className="flex items-center gap-1 bg-base px-2 py-1 rounded border border-line text-xs font-extrabold text-content shadow-sm">
+                              <span>{userBPred?.homeGoals ?? "-"}</span>
+                              <span className="text-content-muted">:</span>
+                              <span>{userBPred?.awayGoals ?? "-"}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            {homeB ? (
+                              <>
                                 <Flag iso2={homeB.iso2} name={homeB.name} size="md" />
-                              </div>
-                              <span className="font-semibold text-content text-xs sm:text-sm truncate">
-                                {homeB.name}
-                              </span>
-                            </>
-                          ) : (
-                            <span className="text-xs text-content-muted italic">TBD</span>
-                          )}
-                          <span className="text-content-muted font-bold text-xs mx-1">vs</span>
-                          {awayB ? (
-                            <>
-                              <div className="shrink-0">
+                                <span className="font-semibold text-content text-sm truncate">{homeB.name}</span>
+                              </>
+                            ) : (
+                              <span className="text-xs text-content-muted italic">TBD</span>
+                            )}
+                            <span className="text-content-muted font-bold text-xs mx-1">vs</span>
+                            {awayB ? (
+                              <>
                                 <Flag iso2={awayB.iso2} name={awayB.name} size="md" />
-                              </div>
-                              <span className="font-semibold text-content text-xs sm:text-sm truncate">
-                                {awayB.name}
-                              </span>
-                            </>
-                          ) : (
-                            <span className="text-xs text-content-muted italic">TBD</span>
-                          )}
+                                <span className="font-semibold text-content text-sm truncate">{awayB.name}</span>
+                              </>
+                            ) : (
+                              <span className="text-xs text-content-muted italic">TBD</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
