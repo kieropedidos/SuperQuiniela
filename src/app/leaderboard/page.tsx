@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { Search, Trophy, Medal, EyeOff } from "lucide-react";
+import { Search, Trophy, Medal, EyeOff, X, Award } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { calculateUserPoints } from "@/scoringEngine";
+import { calculateUserPoints, calculateTournamentBonuses } from "@/scoringEngine";
 import { ALL_GROUP_MATCHES, ALL_KNOCKOUT_MATCHES } from "@/lib/worldCupData";
 
 interface UserRankData {
@@ -13,6 +13,10 @@ interface UserRankData {
   aliasName?: string;
   points: number;
   exactScores: number;
+  matchPoints: number;
+  bonusPoints: number;
+  groupPoints: number;
+  podioPoints: number;
 }
 
 export default function LeaderboardPage() {
@@ -20,6 +24,7 @@ export default function LeaderboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedUser, setSelectedUser] = useState<UserRankData | null>(null);
 
   // Control de visibilidad global
   const [quinielasVisible, setQuinielasVisible] = useState<boolean>(true);
@@ -140,6 +145,11 @@ export default function LeaderboardPage() {
             row.knockout_predictions || {},
             officialMatches
           );
+          const bonuses = calculateTournamentBonuses(
+            row.predictions || {},
+            row.knockout_predictions || {},
+            officialMatches
+          );
 
           return {
             id: row.user_id,
@@ -147,6 +157,10 @@ export default function LeaderboardPage() {
             aliasName: row.alias_name || "",
             points: scoring.totalPoints,
             exactScores: scoring.exactScoresCount,
+            matchPoints: scoring.matchPoints,
+            bonusPoints: scoring.bonusPoints,
+            groupPoints: bonuses.groupPoints,
+            podioPoints: bonuses.podioPoints,
           };
         });
 
@@ -187,6 +201,14 @@ export default function LeaderboardPage() {
     }
     return (userId: string) => rankMap.get(userId) ?? 0;
   }, [users]);
+
+  const handleOpenPodiumUser = (rankIndex: number) => {
+    const index = rankIndex - 1;
+    const user = users[index];
+    if (user && user.id) {
+      setSelectedUser(user);
+    }
+  };
 
   // Construir el podio de los 3 mejores con fallbacks seguros
   const top1 = users[0] || { username: "Pendiente", points: 0, aliasName: "" };
@@ -304,7 +326,10 @@ export default function LeaderboardPage() {
           <div className="flex items-end justify-center gap-1.5 sm:gap-4 md:gap-8 mb-6 sm:mb-10 md:mb-16 h-44 sm:h-60 md:h-64 px-1 sm:px-2">
             
             {/* Second Place */}
-            <div className="flex flex-col items-center relative z-10 translate-y-4 sm:translate-y-8 flex-1 max-w-[105px] sm:max-w-[140px] md:max-w-[160px]">
+            <div 
+              onClick={() => handleOpenPodiumUser(2)}
+              className="flex flex-col items-center relative z-10 translate-y-4 sm:translate-y-8 flex-1 max-w-[105px] sm:max-w-[140px] md:max-w-[160px] cursor-pointer hover:scale-105 active:scale-95 transition-all duration-200"
+            >
               <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gray-400 flex items-center justify-center absolute -top-2.5 sm:-top-4 z-20 shadow-md">
                 <Medal size={12} className="text-white sm:hidden" />
                 <Medal size={14} className="text-white hidden sm:block" />
@@ -320,7 +345,10 @@ export default function LeaderboardPage() {
             </div>
 
             {/* First Place */}
-            <div className="flex flex-col items-center relative z-20 -translate-y-1 sm:-translate-y-4 flex-1 max-w-[115px] sm:max-w-[160px] md:max-w-[192px]">
+            <div 
+              onClick={() => handleOpenPodiumUser(1)}
+              className="flex flex-col items-center relative z-20 -translate-y-1 sm:-translate-y-4 flex-1 max-w-[115px] sm:max-w-[160px] md:max-w-[192px] cursor-pointer hover:scale-105 active:scale-95 transition-all duration-200"
+            >
               <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-full bg-yellow-500 flex items-center justify-center absolute -top-3 sm:-top-5 z-20 shadow-[0_0_15px_rgba(234,179,8,0.5)]">
                 <Trophy size={14} className="text-white sm:hidden" />
                 <Trophy size={20} className="text-white hidden sm:block" />
@@ -342,7 +370,10 @@ export default function LeaderboardPage() {
             </div>
 
             {/* Third Place */}
-            <div className="flex flex-col items-center relative z-10 translate-y-6 sm:translate-y-10 md:translate-y-12 flex-1 max-w-[105px] sm:max-w-[140px] md:max-w-[160px]">
+            <div 
+              onClick={() => handleOpenPodiumUser(3)}
+              className="flex flex-col items-center relative z-10 translate-y-6 sm:translate-y-10 md:translate-y-12 flex-1 max-w-[105px] sm:max-w-[140px] md:max-w-[160px] cursor-pointer hover:scale-105 active:scale-95 transition-all duration-200"
+            >
               <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-amber-600 flex items-center justify-center absolute -top-2.5 sm:-top-4 z-20 shadow-md">
                 <Medal size={12} className="text-white sm:hidden" />
                 <Medal size={14} className="text-white hidden sm:block" />
@@ -378,9 +409,10 @@ export default function LeaderboardPage() {
                   return (
                     <tr 
                       key={user.id} 
-                      className={`hover:bg-card/50 transition-colors ${
+                      className={`hover:bg-card/50 transition-colors cursor-pointer ${
                         isCurrentUser ? "bg-brand/5 border-l-4 border-brand" : ""
                       }`}
+                      onClick={() => setSelectedUser(user)}
                     >
                       <td className="p-4">
                         <div className="flex items-center gap-1.5">
@@ -425,9 +457,10 @@ export default function LeaderboardPage() {
                 return (
                   <div
                     key={user.id}
-                    className={`flex items-center gap-2.5 px-3 py-2.5 transition-colors active:bg-card/50 ${
+                    className={`flex items-center gap-2.5 px-3 py-2.5 transition-colors cursor-pointer active:bg-card/50 ${
                       isCurrentUser ? "bg-brand/5 border-l-3 border-brand" : ""
                     }`}
+                    onClick={() => setSelectedUser(user)}
                   >
                     {/* Rank Badge */}
                     <div className="flex flex-col items-center gap-0.5 shrink-0 w-8">
@@ -463,6 +496,135 @@ export default function LeaderboardPage() {
               })}
             </div>
           </div>
+
+          {/* Modal: Detalle de Puntos del Usuario */}
+          {selectedUser && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div 
+                className="absolute inset-0 bg-base/90 backdrop-blur-sm transition-opacity"
+                onClick={() => setSelectedUser(null)}
+              ></div>
+              
+              <div className="relative w-full max-w-md bg-card border border-line rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+                {/* Header */}
+                <div className="flex items-center justify-between p-5 border-b border-line bg-panel/50">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-brand/20 flex items-center justify-center border border-brand/50 text-brand font-bold text-base">
+                      {selectedUser.username.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-content text-lg leading-tight">
+                        Resumen de Puntos
+                      </h3>
+                      <p className="text-xs text-content-muted mt-0.5">
+                        {selectedUser.username} {selectedUser.aliasName ? `(${selectedUser.aliasName})` : ""}
+                      </p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setSelectedUser(null)}
+                    className="p-1.5 rounded-lg text-content-muted hover:text-content hover:bg-panel transition-colors cursor-pointer"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                {/* Content Body */}
+                <div className="p-6 space-y-5">
+                  {/* Total points banner */}
+                  <div className="bg-brand/10 border border-brand/25 rounded-2xl p-5 text-center relative overflow-hidden">
+                    <div className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-brand/5 blur-xl pointer-events-none"></div>
+                    <span className="text-xs font-bold text-brand uppercase tracking-wider block">Puntos Acumulados</span>
+                    <span className="text-4xl font-black text-content mt-1 block">
+                      {selectedUser.points} <span className="text-lg font-normal text-content-muted">PTS</span>
+                    </span>
+                    <span className="text-xs text-content-muted mt-2 block font-semibold">
+                      Posición actual: #{getRank(selectedUser.id)} en el ranking
+                    </span>
+                  </div>
+
+                  {/* Breakdown Grid */}
+                  <div className="space-y-3.5">
+                    <h4 className="text-xs font-bold text-content-muted uppercase tracking-wider">Desglose de Puntuación</h4>
+                    
+                    {/* 1. Aciertos en Partidos */}
+                    <div className="flex items-center justify-between bg-panel/40 border border-line rounded-xl p-3.5">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400 shrink-0">
+                          <Award size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-sm font-semibold text-content block leading-tight">Pronósticos de Partidos</span>
+                          <span className="text-[10px] text-content-muted">Aciertos de marcadores (M1-M104)</span>
+                        </div>
+                      </div>
+                      <span className="text-base font-bold text-content whitespace-nowrap">
+                        {selectedUser.matchPoints} <span className="text-xs font-medium text-content-muted">PTS</span>
+                      </span>
+                    </div>
+
+                    {/* 2. Puntos por Posición de Grupo */}
+                    <div className="flex items-center justify-between bg-panel/40 border border-line rounded-xl p-3.5">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/25 flex items-center justify-center text-blue-400 shrink-0">
+                          <Trophy size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-sm font-semibold text-content block leading-tight">Clasificación de Grupos</span>
+                          <span className="text-[10px] text-content-muted">+3 pts por posición exacta en tabla</span>
+                        </div>
+                      </div>
+                      <span className="text-base font-bold text-content whitespace-nowrap">
+                        {selectedUser.groupPoints} <span className="text-xs font-medium text-content-muted">PTS</span>
+                      </span>
+                    </div>
+
+                    {/* 3. Puntos por Podio del Torneo */}
+                    <div className="flex items-center justify-between bg-panel/40 border border-line rounded-xl p-3.5">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-yellow-500/10 border border-yellow-500/25 flex items-center justify-center text-yellow-400 shrink-0">
+                          <Trophy size={16} className="text-yellow-500" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-sm font-semibold text-content block leading-tight">Podio Final del Mundial</span>
+                          <span className="text-[10px] text-content-muted">+5 pts por acierto en podio final</span>
+                        </div>
+                      </div>
+                      <span className="text-base font-bold text-content whitespace-nowrap">
+                        {selectedUser.podioPoints} <span className="text-xs font-medium text-content-muted">PTS</span>
+                      </span>
+                    </div>
+
+                    {/* 4. Marcadores Exactos Acertados */}
+                    <div className="flex items-center justify-between bg-panel/40 border border-line rounded-xl p-3.5">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/25 flex items-center justify-center text-purple-400 shrink-0">
+                          <Medal size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-sm font-semibold text-content block leading-tight">Marcadores Exactos</span>
+                          <span className="text-[10px] text-content-muted">Aciertos exactos de goles (+5 pts)</span>
+                        </div>
+                      </div>
+                      <span className="text-base font-bold text-purple-400 whitespace-nowrap">
+                        {selectedUser.exactScores} <span className="text-xs font-semibold">exactos</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="p-4 bg-panel/30 border-t border-line text-center">
+                  <button
+                    onClick={() => setSelectedUser(null)}
+                    className="w-full btn-primary py-2.5 font-bold shadow-md cursor-pointer"
+                  >
+                    Cerrar Resumen
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
 
