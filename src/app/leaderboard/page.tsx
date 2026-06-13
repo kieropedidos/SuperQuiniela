@@ -37,6 +37,7 @@ export default function LeaderboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserRankData | null>(null);
   const [officialMatchesMap, setOfficialMatchesMap] = useState<Record<string, { home_goals: number; away_goals: number }>>({});
+  const [prevRankMap, setPrevRankMap] = useState<Record<string, number>>({});
 
   // Control de visibilidad global
   const [quinielasVisible, setQuinielasVisible] = useState<boolean>(true);
@@ -44,21 +45,21 @@ export default function LeaderboardPage() {
   const [hasQuiniela, setHasQuiniela] = useState<boolean>(false);
   const [quinielaStatus, setQuinielaStatus] = useState<string | null>(null);
 
-  // Generador determinista de tendencia para que no cambie en cada recarga
+  // Obtener tendencia comparando el ranking actual con el previo
   const getTrend = (userId: string) => {
-    let hash = 0;
-    for (let i = 0; i < userId.length; i++) {
-      hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+    const current = getRank(userId);
+    const previous = prevRankMap[userId];
+    
+    if (previous === undefined || current === 0) {
+      return { type: "stable" };
     }
-    const val = Math.abs(hash) % 10;
-    if (val === 1 || val === 2) {
-      return { type: "up", diff: 1 };
-    } else if (val === 3) {
-      return { type: "up", diff: 2 };
-    } else if (val === 4) {
-      return { type: "down", diff: 1 };
-    } else if (val === 5) {
-      return { type: "down", diff: 2 };
+    
+    if (current < previous) {
+      // Subió en el ranking (número menor es mejor, ej: de 5 a 3)
+      return { type: "up", diff: previous - current };
+    } else if (current > previous) {
+      // Bajó en el ranking (número mayor es peor, ej: de 3 a 5)
+      return { type: "down", diff: current - previous };
     } else {
       return { type: "stable" };
     }
@@ -191,6 +192,61 @@ export default function LeaderboardPage() {
         });
 
         setUsers(calculated);
+
+        // 6. Calcular ranking previo excluyendo el último partido finalizado
+        const finishedMatches = officialMatches.filter((om: any) => om.home_goals !== null && om.away_goals !== null);
+        if (finishedMatches.length > 0) {
+          // Ordenar los partidos finalizados cronológicamente según MATCH_SCHEDULES
+          const sortedFinishedMatches = [...finishedMatches].sort((a: any, b: any) => {
+            const schedA = MATCH_SCHEDULES[a.match_id];
+            const schedB = MATCH_SCHEDULES[b.match_id];
+            if (!schedA || !schedB) return 0;
+            const dateTimeA = `${schedA.date}T${schedA.time}`;
+            const dateTimeB = `${schedB.date}T${schedB.time}`;
+            if (dateTimeA !== dateTimeB) {
+              return dateTimeA.localeCompare(dateTimeB);
+            }
+            return a.match_id.localeCompare(b.match_id);
+          });
+
+          const lastMatchId = sortedFinishedMatches[sortedFinishedMatches.length - 1].match_id;
+          const previousOfficialMatches = officialMatches.filter((om: any) => om.match_id !== lastMatchId);
+
+          // Calcular puntos para todos los usuarios con este conjunto previo
+          const previousCalculated = (quinielasData || []).map((row: any) => {
+            const scoring = calculateUserPoints(
+              row.predictions || {},
+              row.knockout_predictions || {},
+              previousOfficialMatches
+            );
+            return {
+              id: row.user_id,
+              username: row.profiles?.username || "Usuario",
+              points: scoring.totalPoints,
+              exactScores: scoring.exactScoresCount,
+            };
+          });
+
+          // Ordenar previo con las mismas reglas
+          previousCalculated.sort((a, b) => {
+            if (b.points !== a.points) return b.points - a.points;
+            if (b.exactScores !== a.exactScores) return b.exactScores - a.exactScores;
+            return a.username.localeCompare(b.username);
+          });
+
+          // Mapear user_id -> anterior posición
+          const prevRanks: Record<string, number> = {};
+          let currentRank = 1;
+          for (let i = 0; i < previousCalculated.length; i++) {
+            if (i > 0 && previousCalculated[i].points < previousCalculated[i - 1].points) {
+              currentRank = i + 1;
+            }
+            prevRanks[previousCalculated[i].id] = currentRank;
+          }
+          setPrevRankMap(prevRanks);
+        } else {
+          setPrevRankMap({});
+        }
       } catch (err) {
         console.error("Error cargando el ranking:", err);
       } finally {
