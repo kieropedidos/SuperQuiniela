@@ -4,8 +4,17 @@ import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { Search, Trophy, Medal, EyeOff, X, Award } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { calculateUserPoints, calculateTournamentBonuses } from "@/scoringEngine";
-import { ALL_GROUP_MATCHES, ALL_KNOCKOUT_MATCHES } from "@/lib/worldCupData";
+import { calculateUserPoints, calculateTournamentBonuses, calculateMatchPoints, getDetailedMatchScoring } from "@/scoringEngine";
+import {
+  ALL_GROUP_MATCHES,
+  ALL_KNOCKOUT_MATCHES,
+  MATCH_SCHEDULES,
+  TEAMS,
+  ROUND_NAMES,
+  getGroupResults,
+  resolveKnockoutBracket
+} from "@/lib/worldCupData";
+import Flag from "@/components/ui/Flag";
 
 interface UserRankData {
   id: string;
@@ -17,6 +26,8 @@ interface UserRankData {
   bonusPoints: number;
   groupPoints: number;
   podioPoints: number;
+  predictions: Record<string, any>;
+  knockoutPredictions: Record<string, any>;
 }
 
 export default function LeaderboardPage() {
@@ -25,6 +36,7 @@ export default function LeaderboardPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserRankData | null>(null);
+  const [officialMatchesMap, setOfficialMatchesMap] = useState<Record<string, { home_goals: number; away_goals: number }>>({});
 
   // Control de visibilidad global
   const [quinielasVisible, setQuinielasVisible] = useState<boolean>(true);
@@ -137,6 +149,11 @@ export default function LeaderboardPage() {
           .select("*");
 
         const officialMatches = officialMatchesData || [];
+        const offMap: Record<string, { home_goals: number; away_goals: number }> = {};
+        officialMatches.forEach((om: any) => {
+          offMap[om.match_id] = { home_goals: om.home_goals, away_goals: om.away_goals };
+        });
+        setOfficialMatchesMap(offMap);
 
         // 4. Calcular puntos y cantidad de marcadores exactos en tiempo real usando el motor unificado
         const calculated: UserRankData[] = (quinielasData || []).map((row: any) => {
@@ -161,6 +178,8 @@ export default function LeaderboardPage() {
             bonusPoints: scoring.bonusPoints,
             groupPoints: bonuses.groupPoints,
             podioPoints: bonuses.podioPoints,
+            predictions: row.predictions || {},
+            knockoutPredictions: row.knockout_predictions || {},
           };
         });
 
@@ -208,6 +227,56 @@ export default function LeaderboardPage() {
     if (user && user.id) {
       setSelectedUser(user);
     }
+  };
+
+  const officialResolved = useMemo(() => {
+    const officialGroupPreds: Record<string, any> = {};
+    const officialKOPreds: Record<string, any> = {};
+    Object.entries(officialMatchesMap).forEach(([id, om]) => {
+      if (id.startsWith("M")) {
+        officialKOPreds[id] = { matchId: id, homeGoals: om.home_goals, awayGoals: om.away_goals };
+      } else {
+        officialGroupPreds[id] = { matchId: id, homeGoals: om.home_goals, awayGoals: om.away_goals };
+      }
+    });
+    const officialGroupResults = getGroupResults(officialGroupPreds);
+    return resolveKnockoutBracket(officialGroupResults, officialKOPreds);
+  }, [officialMatchesMap]);
+
+  const allMatchesSorted = useMemo(() => {
+    const all = [...ALL_GROUP_MATCHES, ...ALL_KNOCKOUT_MATCHES];
+    return all.sort((a, b) => {
+      const schedA = MATCH_SCHEDULES[a.id];
+      const schedB = MATCH_SCHEDULES[b.id];
+      if (!schedA || !schedB) return 0;
+      const dateTimeA = `${schedA.date}T${schedA.time}`;
+      const dateTimeB = `${schedB.date}T${schedB.time}`;
+      return dateTimeA.localeCompare(dateTimeB);
+    });
+  }, []);
+
+  const last10PlayedMatches = useMemo(() => {
+    const played = allMatchesSorted.filter(m => officialMatchesMap[m.id] !== undefined);
+    return played.slice(-10).reverse(); // latest first
+  }, [allMatchesSorted, officialMatchesMap]);
+
+  const getMatchTeams = (match: any) => {
+    const isKO = match.id.startsWith("M");
+    if (!isKO) {
+      return {
+        homeTeam: TEAMS[match.homeTeam],
+        awayTeam: TEAMS[match.awayTeam],
+      };
+    }
+    const homeCode = officialResolved?.[match.id]?.home || "";
+    const awayCode = officialResolved?.[match.id]?.away || "";
+
+    return {
+      homeTeam: homeCode ? TEAMS[homeCode] : null,
+      awayTeam: awayCode ? TEAMS[awayCode] : null,
+      homeSlot: match.homeSlot,
+      awaySlot: match.awaySlot
+    };
   };
 
   // Construir el podio de los 3 mejores con fallbacks seguros
@@ -530,7 +599,7 @@ export default function LeaderboardPage() {
                 </div>
 
                 {/* Content Body */}
-                <div className="p-6 space-y-5">
+                <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto custom-horizontal-scrollbar">
                   {/* Total points banner */}
                   <div className="bg-brand/10 border border-brand/25 rounded-2xl p-5 text-center relative overflow-hidden">
                     <div className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-brand/5 blur-xl pointer-events-none"></div>
@@ -610,6 +679,109 @@ export default function LeaderboardPage() {
                         {selectedUser.exactScores} <span className="text-xs font-semibold">exactos</span>
                       </span>
                     </div>
+                  </div>
+
+                  {/* Últimos 10 Partidos Jugados */}
+                  <div className="space-y-3.5 border-t border-line/45 pt-4">
+                    <h4 className="text-xs font-bold text-content-muted uppercase tracking-wider flex items-center gap-1.5">
+                      <span>⚽</span> Últimos 10 Partidos Jugados
+                    </h4>
+                    {last10PlayedMatches.length === 0 ? (
+                      <p className="text-xs text-content-muted italic">No se han registrado resultados oficiales todavía.</p>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {last10PlayedMatches.map((match) => {
+                          const isKO = match.id.startsWith("M");
+                          const teams = getMatchTeams(match);
+                          const official = officialMatchesMap[match.id];
+                          const pred = isKO 
+                            ? selectedUser.knockoutPredictions?.[match.id]
+                            : selectedUser.predictions?.[match.id];
+                          
+                          const predExists = pred && pred.homeGoals !== null && pred.awayGoals !== null;
+                          
+                          let pts = 0;
+                          let scoring: any = null;
+                          if (predExists && official) {
+                            pts = calculateMatchPoints(pred.homeGoals!, pred.awayGoals!, official.home_goals, official.away_goals);
+                            scoring = getDetailedMatchScoring(pred.homeGoals!, pred.awayGoals!, official.home_goals, official.away_goals);
+                          }
+
+                          const pointsColor = scoring
+                            ? scoring.isExactScore ? "text-emerald-400 bg-emerald-500/20 border-emerald-500/40"
+                            : scoring.isWinnerGuessed || scoring.isTieGuessed ? "text-green-400 bg-green-500/15 border-green-500/30"
+                            : scoring.isConsolation ? "text-yellow-400 bg-yellow-500/15 border-yellow-500/30"
+                            : "text-red-400 bg-red-500/15 border-red-500/30"
+                            : "";
+
+                          const pointsLabel = scoring
+                            ? scoring.isExactScore ? "Exacto"
+                            : scoring.isWinnerGuessed ? "Ganador"
+                            : scoring.isTieGuessed ? "Empate"
+                            : scoring.isConsolation ? "Cercano"
+                            : "Errado"
+                            : "";
+
+                          const headerLabel = isKO 
+                            ? (ROUND_NAMES[(match as any).round] || (match as any).round)
+                            : `Grupo ${(match as any).group}`;
+
+                          return (
+                            <div 
+                              key={match.id}
+                              className="bg-panel/30 border border-line/50 rounded-xl p-3 flex flex-col gap-2"
+                            >
+                              <div className="flex items-center justify-between text-[10px] text-content-muted font-bold border-b border-line/30 pb-1.5">
+                                <span className="text-brand uppercase">{headerLabel} · {match.id}</span>
+                                {predExists ? (
+                                  <span className={`px-2 py-0.5 rounded-full border ${pointsColor}`}>
+                                    +{pts} pts · {pointsLabel}
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-full border border-line/40 text-content-muted bg-panel/30">
+                                    Sin pronóstico
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="grid grid-cols-7 items-center gap-1">
+                                <div className="col-span-2 flex items-center gap-1.5 min-w-0">
+                                  {teams.homeTeam ? (
+                                    <>
+                                      <Flag iso2={teams.homeTeam.iso2} name={teams.homeTeam.name} size="sm" />
+                                      <span className="text-xs font-semibold text-content truncate">{teams.homeTeam.name}</span>
+                                    </>
+                                  ) : (
+                                    <span className="text-xs text-content-muted italic">TBD</span>
+                                  )}
+                                </div>
+
+                                <div className="col-span-3 flex items-center justify-center gap-1.5 text-xs font-bold">
+                                  <div className="bg-base border border-line px-1.5 py-0.5 rounded text-content-muted font-medium" title="Pronóstico del participante">
+                                    {predExists ? `${pred.homeGoals}-${pred.awayGoals}` : "-"}
+                                  </div>
+                                  <span className="text-[10px] font-bold text-content-muted">/</span>
+                                  <div className="bg-panel border border-brand/30 px-1.5 py-0.5 rounded text-brand" title="Resultado oficial real">
+                                    {official.home_goals}-{official.away_goals}
+                                  </div>
+                                </div>
+
+                                <div className="col-span-2 flex items-center gap-1.5 justify-end min-w-0">
+                                  {teams.awayTeam ? (
+                                    <>
+                                      <span className="text-xs font-semibold text-content truncate">{teams.awayTeam.name}</span>
+                                      <Flag iso2={teams.awayTeam.iso2} name={teams.awayTeam.name} size="sm" />
+                                    </>
+                                  ) : (
+                                    <span className="text-xs text-content-muted italic">TBD</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
 
