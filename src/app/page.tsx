@@ -33,6 +33,7 @@ interface UserQuinielaData {
   points: number;
   predictions: Record<string, MatchPrediction>;
   knockoutPredictions: Record<string, MatchPrediction>;
+  status?: string;
 }
 
 const flagCache: Record<string, string> = {};
@@ -43,6 +44,7 @@ const flagCache: Record<string, string> = {};
 export default function PronosticosPage() {
   const [viewMode, setViewMode] = useState<"feed" | "compare">("feed");
   const [users, setUsers] = useState<UserQuinielaData[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserQuinielaData | null>(null);
   const [modalTab, setModalTab] = useState<"groups" | "knockout">("groups");
@@ -272,7 +274,7 @@ export default function PronosticosPage() {
             6: { cellWidth: 28, halign: "center", fontStyle: "bold", textColor: [0, 176, 107] },
           },
           theme: "grid",
-          didDrawCell: (data) => {
+          didDrawCell: (data: any) => {
             if (data.section === "body") {
               const rowIndex = data.row.index;
               const match = sortedMatches[rowIndex];
@@ -328,7 +330,7 @@ export default function PronosticosPage() {
             6: { cellWidth: 28, halign: "center", fontStyle: "bold", textColor: [0, 176, 107] },
           },
           theme: "grid",
-          didDrawCell: (data) => {
+          didDrawCell: (data: any) => {
             if (data.section === "body") {
               const rowIndex = data.row.index;
               const match = sortedMatches[36 + rowIndex];
@@ -374,16 +376,20 @@ export default function PronosticosPage() {
         const { data: { session } } = await supabase.auth.getSession();
         const username = session?.user?.user_metadata?.username || "";
         setCurrentUsername(username);
+        const currentUid = session?.user?.id || "";
+        setCurrentUserId(currentUid);
 
         // Verificar si este usuario ya tiene una quiniela registrada (pendiente o aprobada)
+        let myRow: any = null;
         if (session?.user) {
           const { data: userQ } = await supabase
             .from("user_quinielas")
-            .select("id, status, predictions, knockout_predictions")
+            .select("user_id, status, predictions, knockout_predictions, alias_name, profiles(username, total_points)")
             .eq("user_id", session.user.id)
             .maybeSingle();
             
           if (userQ) {
+            myRow = userQ;
             // Verificar si la quiniela realmente está completa
             const predsMap = userQ.predictions || {};
             const koMap = userQ.knockout_predictions || {};
@@ -436,6 +442,7 @@ export default function PronosticosPage() {
             predictions,
             knockout_predictions,
             alias_name,
+            status,
             profiles (username, total_points)
           `)
           .eq("status", "approved");
@@ -460,9 +467,22 @@ export default function PronosticosPage() {
         });
         setOfficialMatchesMap(offMap);
  
-        const formattedUsers: UserQuinielaData[] = (data || []).map((row: any) => {
-          const groupResults = getGroupResults(row.predictions);
-          const resolvedKnockout = resolveKnockoutBracket(groupResults, row.knockout_predictions);
+        const approvedRows = data || [];
+        const allRows = [...approvedRows];
+        if (myRow && !allRows.some((r: any) => r.user_id === myRow.user_id)) {
+          allRows.push({
+            user_id: currentUid,
+            predictions: myRow.predictions,
+            knockout_predictions: myRow.knockout_predictions,
+            alias_name: myRow.alias_name,
+            status: myRow.status,
+            profiles: myRow.profiles
+          });
+        }
+
+        const formattedUsers: UserQuinielaData[] = allRows.map((row: any) => {
+          const groupResults = getGroupResults(row.predictions || {});
+          const resolvedKnockout = resolveKnockoutBracket(groupResults, row.knockout_predictions || {});
           
           let championCode = "TBD";
           let runnerUpCode = "TBD";
@@ -470,7 +490,7 @@ export default function PronosticosPage() {
           const finalMatch = ALL_KNOCKOUT_MATCHES.find((m) => m.round === "FINAL");
           if (finalMatch) {
              const finalResolved = resolvedKnockout[finalMatch.id];
-             const pred = row.knockout_predictions[finalMatch.id];
+             const pred = (row.knockout_predictions || {})[finalMatch.id];
              
              if (finalResolved && pred && pred.homeGoals !== null && pred.awayGoals !== null) {
                 if (pred.homeGoals > pred.awayGoals) {
@@ -496,14 +516,25 @@ export default function PronosticosPage() {
             username: row.profiles?.username || "Usuario",
             aliasName: row.alias_name || "",
             points: calculatedPoints, // Mostrar puntos en tiempo real calculados dinámicamente
-            predictions: row.predictions,
-            knockoutPredictions: row.knockout_predictions,
+            predictions: row.predictions || {},
+            knockoutPredictions: row.knockout_predictions || {},
             championCode,
-            runnerUpCode
+            runnerUpCode,
+            status: row.status
           };
         });
 
         formattedUsers.sort((a, b) => b.points - a.points);
+
+        // Mover la quiniela del usuario logueado a la primera posición
+        if (session?.user) {
+          const myIndex = formattedUsers.findIndex(u => u.id === session.user.id);
+          if (myIndex > -1) {
+            const [myQ] = formattedUsers.splice(myIndex, 1);
+            formattedUsers.unshift(myQ);
+          }
+        }
+
         setUsers(formattedUsers);
         if (formattedUsers.length >= 2) {
            setCompareA(formattedUsers[0].id);
@@ -561,13 +592,7 @@ export default function PronosticosPage() {
   return (
     <div className="max-w-7xl mx-auto pb-12 animate-in fade-in duration-500">
       
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-extrabold text-content tracking-tight">Hub de Quinielas</h1>
-        <p className="text-content-muted mt-2">
-          Explora las predicciones de todos los participantes de la liga.
-        </p>
-      </div>
+      {/* Header removed as per user request */}
 
       {/* Onboarding Prompts */}
       {currentUsername && quinielaStatus === null && (
@@ -710,23 +735,44 @@ export default function PronosticosPage() {
             return filtered.map((user) => {
             const champion = user.championCode !== "TBD" ? TEAMS[user.championCode] : null;
             const runnerUp = user.runnerUpCode !== "TBD" ? TEAMS[user.runnerUpCode] : null;
+            const isMe = user.id === currentUserId;
             
             return (
               <div 
                 key={user.id} 
-                className="glass-card p-5 card-hover cursor-pointer group"
+                className={`glass-card p-5 card-hover cursor-pointer group relative overflow-hidden ${
+                  isMe ? "border-brand bg-brand/5 shadow-[0_0_20px_rgba(0,176,107,0.15)]" : ""
+                }`}
                 onClick={() => openUserModal(user)}
               >
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 rounded-full bg-brand/20 flex items-center justify-center border border-brand/50 shrink-0">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center border shrink-0 ${
+                    isMe ? "bg-brand/30 border-brand" : "bg-brand/20 border-brand/50"
+                  }`}>
                     <span className="text-brand font-bold text-lg">
                       {user.username.charAt(0).toUpperCase()}
                     </span>
                   </div>
                   <div>
-                    <h3 className="font-bold text-content text-lg group-hover:text-brand transition-colors">
-                      {user.username}
-                    </h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-bold text-content text-lg group-hover:text-brand transition-colors">
+                        {user.username}
+                      </h3>
+                      {isMe && (
+                        <span className="text-[10px] font-extrabold bg-brand text-white px-2 py-0.5 rounded-full shadow-sm">
+                          Tú
+                        </span>
+                      )}
+                      {isMe && user.status && user.status !== "approved" && (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          user.status === "draft" 
+                            ? "bg-yellow-500/20 text-yellow-500 border-yellow-500/30" 
+                            : "bg-orange-500/20 text-orange-500 border-orange-500/30"
+                        }`}>
+                          {user.status === "draft" ? "Borrador" : "Pendiente"}
+                        </span>
+                      )}
+                    </div>
                     {currentUsername.toLowerCase() === "vicdaddy" && user.aliasName && (
                       <p className="text-xs text-yellow-500 font-bold mb-0.5">
                         Apodo: {user.aliasName}
