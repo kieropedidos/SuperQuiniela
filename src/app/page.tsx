@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
-import { Users, Swords, X, Trophy, EyeOff, Search } from "lucide-react";
+import { Users, Swords, X, Trophy, EyeOff, Search, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   ALL_GROUP_MATCHES,
   ALL_KNOCKOUT_MATCHES,
@@ -13,6 +13,8 @@ import {
   GROUP_NAMES,
   getGroupMatches,
   calculateGroupStandings,
+  MATCH_SCHEDULES,
+  ROUND_NAMES,
 } from "@/lib/worldCupData";
 import { calculateMatchPoints, getDetailedMatchScoring, calculateTournamentBonuses, calculateUserPoints } from "@/scoringEngine";
 import KnockoutBracket from "@/components/predictions/KnockoutBracket";
@@ -58,6 +60,26 @@ export default function PronosticosPage() {
   const [officialMatchesMap, setOfficialMatchesMap] = useState<Record<string, { home_goals: number; away_goals: number }>>({});
   const [feedSearchQuery, setFeedSearchQuery] = useState("");
 
+  const [activeWidgetDate, setActiveWidgetDate] = useState<string>(() => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const formattedToday = `${yyyy}-${mm}-${dd}`;
+    if (Object.values(MATCH_SCHEDULES).some(s => s.date === formattedToday)) {
+      return formattedToday;
+    }
+    return "2026-06-13";
+  });
+
+  const tournamentDates = useMemo(() => {
+    const dates = new Set<string>();
+    Object.values(MATCH_SCHEDULES).forEach((val) => {
+      dates.add(val.date);
+    });
+    return Array.from(dates).sort();
+  }, []);
+
   // Preparar datos oficiales para el árbol de eliminatorias en modal
   const officialMatchesMapForBracket = useMemo(() => {
     const map: Record<string, { homeGoals: number; awayGoals: number }> = {};
@@ -86,6 +108,69 @@ export default function PronosticosPage() {
   const [currentUsername, setCurrentUsername] = useState<string>("");
   const [hasQuiniela, setHasQuiniela] = useState<boolean>(false);
   const [quinielaStatus, setQuinielaStatus] = useState<string | null>(null);
+
+  const activeDateIndex = tournamentDates.indexOf(activeWidgetDate);
+  const handlePrevDate = () => {
+    if (activeDateIndex > 0) {
+      setActiveWidgetDate(tournamentDates[activeDateIndex - 1]);
+    }
+  };
+  const handleNextDate = () => {
+    if (activeDateIndex < tournamentDates.length - 1) {
+      setActiveWidgetDate(tournamentDates[activeDateIndex + 1]);
+    }
+  };
+
+  const currentDateLabel = useMemo(() => {
+    const matchId = Object.keys(MATCH_SCHEDULES).find(id => MATCH_SCHEDULES[id].date === activeWidgetDate);
+    return matchId ? MATCH_SCHEDULES[matchId].label : activeWidgetDate;
+  }, [activeWidgetDate]);
+
+  const matchesOfTheDay = useMemo(() => {
+    const groupMatches = ALL_GROUP_MATCHES.filter(m => MATCH_SCHEDULES[m.id]?.date === activeWidgetDate);
+    const knockoutMatches = ALL_KNOCKOUT_MATCHES.filter(m => MATCH_SCHEDULES[m.id]?.date === activeWidgetDate);
+    return { groupMatches, knockoutMatches };
+  }, [activeWidgetDate]);
+
+  const myQuiniela = useMemo(() => {
+    return users.find(u => u.id === currentUserId);
+  }, [users, currentUserId]);
+
+  const myResolvedBracket = useMemo(() => {
+    if (!myQuiniela) return null;
+    const groupResults = getGroupResults(myQuiniela.predictions || {});
+    return resolveKnockoutBracket(groupResults, myQuiniela.knockoutPredictions || {});
+  }, [myQuiniela]);
+
+  const getMatchTeams = (match: any) => {
+    const isKO = match.id.startsWith("M");
+    if (!isKO) {
+      return {
+        homeCode: match.homeTeam,
+        awayCode: match.awayTeam,
+        homeTeam: TEAMS[match.homeTeam],
+        awayTeam: TEAMS[match.awayTeam],
+        homeSlot: "",
+        awaySlot: ""
+      };
+    }
+    const myHome = myResolvedBracket?.[match.id]?.home;
+    const myAway = myResolvedBracket?.[match.id]?.away;
+    const officialHome = officialResolved?.[match.id]?.home;
+    const officialAway = officialResolved?.[match.id]?.away;
+
+    const homeCode = myHome || officialHome || "";
+    const awayCode = myAway || officialAway || "";
+
+    return {
+      homeCode,
+      awayCode,
+      homeTeam: homeCode ? TEAMS[homeCode] : null,
+      awayTeam: awayCode ? TEAMS[awayCode] : null,
+      homeSlot: match.homeSlot,
+      awaySlot: match.awaySlot
+    };
+  };
 
   const openUserModal = (user: UserQuinielaData) => {
     setSelectedUser(user);
@@ -593,6 +678,220 @@ export default function PronosticosPage() {
     <div className="max-w-7xl mx-auto pb-12 animate-in fade-in duration-500">
       
       {/* Header removed as per user request */}
+
+      {/* Widget: Partidos del Día */}
+      <div className="mb-8 glass-panel p-5 relative overflow-hidden bg-panel/40 backdrop-blur-md">
+        {/* Decorative subtle background glowing circle */}
+        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-36 h-36 rounded-full bg-brand/10 blur-2xl pointer-events-none"></div>
+        
+        {/* Header with Calendar Icon and Title */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-line/50 pb-4 mb-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand">
+              <Calendar size={20} />
+            </div>
+            <div>
+              <h2 className="text-xl font-extrabold text-content tracking-tight">Partidos del Día</h2>
+              <p className="text-xs text-content-muted mt-0.5">Sigue los resultados oficiales y tus pronósticos en vivo</p>
+            </div>
+          </div>
+
+          {/* Date Selector Paginator */}
+          <div className="flex items-center bg-base border border-line rounded-xl p-1 shadow-inner max-w-sm sm:w-auto w-full justify-between">
+            <button
+              onClick={handlePrevDate}
+              disabled={activeDateIndex <= 0}
+              className="p-2 rounded-lg text-content-muted hover:text-content hover:bg-panel disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-content-muted transition-all select-none cursor-pointer disabled:cursor-not-allowed"
+              title="Día anterior"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className="text-xs font-bold text-content px-3 text-center truncate select-none flex-1 min-w-[140px]">
+              {currentDateLabel}
+            </span>
+            <button
+              onClick={handleNextDate}
+              disabled={activeDateIndex >= tournamentDates.length - 1}
+              className="p-2 rounded-lg text-content-muted hover:text-content hover:bg-panel disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-content-muted transition-all select-none cursor-pointer disabled:cursor-not-allowed"
+              title="Día siguiente"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* Matches Grid */}
+        {(() => {
+          const { groupMatches, knockoutMatches } = matchesOfTheDay;
+          const allMatchesToday = [...groupMatches, ...knockoutMatches];
+
+          if (allMatchesToday.length === 0) {
+            return (
+              <div className="text-center py-12 bg-base/30 rounded-xl border border-dashed border-line/60">
+                <Calendar size={32} className="text-content-muted/30 mx-auto mb-3" />
+                <p className="text-content-muted text-sm font-medium">No hay partidos programados para esta fecha.</p>
+              </div>
+            );
+          }
+
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {allMatchesToday.map((match) => {
+                const isKO = match.id.startsWith("M");
+                const teams = getMatchTeams(match);
+                const official = officialMatchesMap[match.id];
+                
+                // Get prediction for this match
+                const pred = isKO 
+                  ? myQuiniela?.knockoutPredictions?.[match.id]
+                  : myQuiniela?.predictions?.[match.id];
+                
+                const predExists = pred && pred.homeGoals !== null && pred.awayGoals !== null;
+
+                // Points calculation
+                let pts: number | null = null;
+                let scoring: any = null;
+                if (predExists && official) {
+                  pts = calculateMatchPoints(pred.homeGoals!, pred.awayGoals!, official.home_goals, official.away_goals);
+                  scoring = getDetailedMatchScoring(pred.homeGoals!, pred.awayGoals!, official.home_goals, official.away_goals);
+                }
+
+                // Points badge colors
+                const pointsColor = scoring
+                  ? scoring.isExactScore ? "text-emerald-400 bg-emerald-500/20 border-emerald-500/40"
+                  : scoring.isWinnerGuessed || scoring.isTieGuessed ? "text-green-400 bg-green-500/15 border-green-500/30"
+                  : scoring.isConsolation ? "text-yellow-400 bg-yellow-500/15 border-yellow-500/30"
+                  : "text-red-400 bg-red-500/15 border-red-500/30"
+                  : "";
+
+                const pointsLabel = scoring
+                  ? scoring.isExactScore ? "Exacto"
+                  : scoring.isWinnerGuessed ? "Ganador"
+                  : scoring.isTieGuessed ? "Empate"
+                  : scoring.isConsolation ? "Cercano"
+                  : "Errado"
+                  : "";
+
+                const matchHeaderLabel = isKO 
+                  ? (ROUND_NAMES[(match as any).round] || (match as any).round)
+                  : `Grupo ${(match as any).group}`;
+
+                return (
+                  <div 
+                    key={match.id}
+                    className="glass-card bg-card/60 hover:bg-card border-line/60 hover:border-line transition-all duration-300 p-4 flex flex-col justify-between"
+                  >
+                    {/* Card Top: Round Name, Match ID, and time */}
+                    <div className="flex items-center justify-between border-b border-line/40 pb-2 mb-3">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-bold text-brand uppercase tracking-wider">{matchHeaderLabel}</span>
+                        <span className="text-[9px] text-content-muted leading-none mt-0.5">{match.id}</span>
+                      </div>
+                      <span className="text-[10px] font-semibold text-content-muted bg-panel/80 px-2 py-0.5 rounded border border-line/40">
+                        {MATCH_SCHEDULES[match.id]?.time || ""}
+                      </span>
+                    </div>
+
+                    {/* Card Core: Teams and flags */}
+                    <div className="space-y-3 flex-1 flex flex-col justify-center my-1">
+                      {/* Home Team */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {teams.homeTeam ? (
+                            <>
+                              <Flag iso2={teams.homeTeam.iso2} name={teams.homeTeam.name} size="sm" />
+                              <span className="text-xs font-semibold text-content truncate">{teams.homeTeam.name}</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="w-5 h-4 rounded bg-line/40 shrink-0"></span>
+                              <span className="text-xs text-content-muted italic truncate">
+                                {teams.homeSlot ? `Por definir (${teams.homeSlot})` : "TBD"}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        {official && (
+                          <span className="text-xs font-bold text-content bg-panel px-1.5 py-0.5 rounded border border-line/50">
+                            {official.home_goals}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Versus / Divider */}
+                      <div className="flex items-center gap-2">
+                        <div className="h-[1px] bg-line/30 flex-1"></div>
+                        <span className="text-[9px] font-bold text-content-muted uppercase tracking-widest shrink-0">VS</span>
+                        <div className="h-[1px] bg-line/30 flex-1"></div>
+                      </div>
+
+                      {/* Away Team */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {teams.awayTeam ? (
+                            <>
+                              <Flag iso2={teams.awayTeam.iso2} name={teams.awayTeam.name} size="sm" />
+                              <span className="text-xs font-semibold text-content truncate">{teams.awayTeam.name}</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="w-5 h-4 rounded bg-line/40 shrink-0"></span>
+                              <span className="text-xs text-content-muted italic truncate">
+                                {teams.awaySlot ? `Por definir (${teams.awaySlot})` : "TBD"}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        {official && (
+                          <span className="text-xs font-bold text-content bg-panel px-1.5 py-0.5 rounded border border-line/50">
+                            {official.away_goals}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Card Footer: Prediction & points */}
+                    <div className="mt-4 pt-3 border-t border-line/40 flex flex-col gap-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] text-content-muted font-semibold uppercase">Tu Pronóstico:</span>
+                        {currentUserId ? (
+                          predExists ? (
+                            <span className="text-xs font-extrabold text-content bg-base/50 px-2 py-0.5 rounded border border-line/50">
+                              {pred.homeGoals} - {pred.awayGoals}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-yellow-500/80 font-semibold italic">Sin pronosticar</span>
+                          )
+                        ) : (
+                          <span className="text-[9px] text-content-muted italic">Inicia sesión</span>
+                        )}
+                      </div>
+
+                      {/* Points badge if result is available */}
+                      {official && (
+                        <div className="flex items-center justify-between gap-2 border-t border-dashed border-line/30 pt-2">
+                          <span className="text-[9px] text-content-muted font-bold uppercase">Resultado:</span>
+                          {predExists ? (
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${pointsColor}`}>
+                              <span>+{pts} pts</span>
+                              <span>·</span>
+                              <span>{pointsLabel}</span>
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-content-muted bg-panel/30 border border-line/50 px-2 py-0.5 rounded-full font-medium">
+                              Sin puntos
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+      </div>
 
       {/* Onboarding Prompts */}
       {currentUsername && quinielaStatus === null && (
