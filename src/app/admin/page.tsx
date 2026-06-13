@@ -12,7 +12,8 @@ import {
   resolveKnockoutBracket,
   GROUP_NAMES,
   getGroupMatches,
-  calculateGroupStandings
+  calculateGroupStandings,
+  MATCH_SCHEDULES
 } from "@/lib/worldCupData";
 import Flag from "@/components/ui/Flag";
 import KnockoutBracket from "@/components/predictions/KnockoutBracket";
@@ -20,18 +21,27 @@ import GroupStandings from "@/components/predictions/GroupStandings";
 import { calculateMatchPoints, getDetailedMatchScoring, calculateTournamentBonuses } from "@/scoringEngine";
 
 const CHRONOLOGICAL_MATCHES = [...ALL_GROUP_MATCHES].sort((a, b) => {
-  // 1. Primero por jornada (matchday)
-  if (a.matchday !== b.matchday) {
-    return a.matchday - b.matchday;
+  const schedA = MATCH_SCHEDULES[a.id];
+  const schedB = MATCH_SCHEDULES[b.id];
+  if (!schedA || !schedB) return 0;
+  const dateTimeA = `${schedA.date}T${schedA.time}`;
+  const dateTimeB = `${schedB.date}T${schedB.time}`;
+  if (dateTimeA !== dateTimeB) {
+    return dateTimeA.localeCompare(dateTimeB);
   }
-  // 2. Segundo por grupo alfabéticamente (A-L)
-  if (a.group !== b.group) {
-    return a.group.localeCompare(b.group);
+  return a.id.localeCompare(b.id);
+});
+
+const CHRONOLOGICAL_KNOCKOUT_MATCHES = [...ALL_KNOCKOUT_MATCHES].sort((a, b) => {
+  const schedA = MATCH_SCHEDULES[a.id];
+  const schedB = MATCH_SCHEDULES[b.id];
+  if (!schedA || !schedB) return 0;
+  const dateTimeA = `${schedA.date}T${schedA.time}`;
+  const dateTimeB = `${schedB.date}T${schedB.time}`;
+  if (dateTimeA !== dateTimeB) {
+    return dateTimeA.localeCompare(dateTimeB);
   }
-  // 3. Tercero por el número de partido dentro del grupo (ej: A-1 vs A-2)
-  const numA = parseInt(a.id.split("-")[1], 10);
-  const numB = parseInt(b.id.split("-")[1], 10);
-  return numA - numB;
+  return a.id.localeCompare(b.id);
 });
 
 const ROUND_DESCRIPTIONS: Record<string, string> = {
@@ -848,47 +858,46 @@ export default function AdminPage() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3 w-full md:w-auto">
+                      <div className="flex items-center gap-1.5 sm:gap-3 w-full md:w-auto mt-2 md:mt-0 justify-end flex-wrap">
                         <button
                           onClick={() => handleToggleAllowEdit(q.id, !!q.allow_edit)}
-                          className={`flex items-center gap-1.5 px-3 py-2.5 rounded-lg border font-bold text-xs transition-all cursor-pointer shrink-0 ${
+                          className={`flex items-center gap-1 px-2.5 py-1.5 md:px-3 md:py-2 rounded-lg border font-bold text-xs transition-all cursor-pointer shrink-0 ${
                             q.allow_edit
                               ? "bg-purple-500/15 hover:bg-purple-500/25 text-purple-400 border-purple-500/35 shadow-[0_0_8px_rgba(168,85,247,0.15)]"
                               : "bg-panel hover:bg-card text-content-muted border-line"
                           }`}
                           title={q.allow_edit ? "Deshabilitar Edición Excepcional" : "Habilitar Edición Excepcional"}
                         >
-                          <span>{q.allow_edit ? "🔓 Edición Habilitada" : "🔒 Habilitar Edición"}</span>
+                          <span>{q.allow_edit ? "🔓" : "🔒"}<span className="hidden md:inline"> {q.allow_edit ? "Edición Habilitada" : "Habilitar Edición"}</span></span>
                         </button>
                         <button
                           onClick={() => handleTogglePaid(q.id, !!q.has_paid)}
-                          className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg border font-bold text-xs transition-all cursor-pointer shrink-0 ${
+                          className={`flex items-center gap-1 px-2.5 py-1.5 md:px-3.5 md:py-2 rounded-lg border font-bold text-xs transition-all cursor-pointer shrink-0 ${
                             q.has_paid
                               ? "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border-emerald-500/35"
                               : "bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border-amber-500/25"
                           }`}
                           title={q.has_paid ? "Marcar como No Pagado" : "Marcar como Pagado"}
                         >
-                          <span>💰</span>
-                          <span>{q.has_paid ? "Pagado" : "Pendiente"}</span>
+                          <span>💰<span className="hidden md:inline"> {q.has_paid ? "Pagado" : "Pendiente"}</span></span>
                         </button>
                         <button
                           onClick={() => handleApprove(q.id)}
                           disabled={isProcessing}
-                          className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm bg-brand hover:bg-brand-hover text-white transition-colors disabled:opacity-50"
+                          className="flex items-center justify-center gap-1.5 px-3 py-1.5 md:px-5 md:py-2 rounded-lg font-bold text-xs md:text-sm bg-brand hover:bg-brand-hover text-white transition-colors disabled:opacity-50"
                         >
                           {isProcessing ? (
                             <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
                           ) : (
-                            <><UserCheck size={16} /> Aprobar</>
+                            <><UserCheck size={16} /><span className="hidden md:inline"> Aprobar</span></>
                           )}
                         </button>
                         <button
                           onClick={() => handleReject(q.id)}
                           disabled={isProcessing}
-                          className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/30 transition-colors disabled:opacity-50"
+                          className="flex items-center justify-center gap-1.5 px-3 py-1.5 md:px-5 md:py-2 rounded-lg font-bold text-xs md:text-sm bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/30 transition-colors disabled:opacity-50"
                         >
-                          <UserX size={16} /> Rechazar
+                          <UserX size={16} /><span className="hidden md:inline"> Rechazar</span>
                         </button>
                       </div>
                     </div>
@@ -974,17 +983,17 @@ export default function AdminPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                      <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto flex-wrap justify-end">
                         <button
                           onClick={() => handleToggleAllowEdit(q.id, !!q.allow_edit)}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-bold text-xs transition-all cursor-pointer shrink-0 ${
+                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border font-bold text-xs transition-all cursor-pointer shrink-0 ${
                             q.allow_edit
                               ? "bg-purple-500/15 hover:bg-purple-500/25 text-purple-400 border-purple-500/35 shadow-[0_0_8px_rgba(168,85,247,0.15)]"
                               : "bg-panel hover:bg-card text-content-muted border-line"
                           }`}
                           title={q.allow_edit ? "Deshabilitar Edición Excepcional" : "Habilitar Edición Excepcional"}
                         >
-                          <span>{q.allow_edit ? "🔓 Edición Habilitada" : "🔒 Habilitar Edición"}</span>
+                          <span>{q.allow_edit ? "🔓" : "🔒"}<span className="hidden md:inline"> {q.allow_edit ? "Edición Habilitada" : "Habilitar Edición"}</span></span>
                         </button>
                         <button
                           onClick={() => handleTogglePaid(q.id, !!q.has_paid)}
@@ -995,8 +1004,7 @@ export default function AdminPage() {
                           }`}
                           title={q.has_paid ? "Marcar como No Pagado" : "Marcar como Pagado"}
                         >
-                          <span>💰</span>
-                          <span>{q.has_paid ? "Pagado" : "Pendiente"}</span>
+                          <span>💰<span className="hidden md:inline"> {q.has_paid ? "Pagado" : "Pendiente"}</span></span>
                         </button>
                         <span className="text-xs font-bold bg-brand/10 text-brand px-3 py-1 rounded-full hidden sm:inline">
                           ✓ Aprobada
@@ -1007,8 +1015,7 @@ export default function AdminPage() {
                           className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 transition-colors disabled:opacity-50"
                           title="Eliminar Quiniela"
                         >
-                          <UserX size={14} />
-                          <span>Eliminar</span>
+                          <UserX size={14} /><span className="hidden md:inline"> Eliminar</span>
                         </button>
                       </div>
                     </div>
@@ -1088,17 +1095,17 @@ export default function AdminPage() {
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                      <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto flex-wrap justify-end">
                         <button
                           onClick={() => handleToggleAllowEdit(q.id, !!q.allow_edit)}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-bold text-xs transition-all cursor-pointer shrink-0 ${
+                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border font-bold text-xs transition-all cursor-pointer shrink-0 ${
                             q.allow_edit
                               ? "bg-purple-500/15 hover:bg-purple-500/25 text-purple-400 border-purple-500/35 shadow-[0_0_8px_rgba(168,85,247,0.15)]"
                               : "bg-panel hover:bg-card text-content-muted border-line"
                           }`}
                           title={q.allow_edit ? "Deshabilitar Edición Excepcional" : "Habilitar Edición Excepcional"}
                         >
-                          <span>{q.allow_edit ? "🔓 Edición Habilitada" : "🔒 Habilitar Edición"}</span>
+                          <span>{q.allow_edit ? "🔓" : "🔒"}<span className="hidden md:inline"> {q.allow_edit ? "Edición Habilitada" : "Habilitar Edición"}</span></span>
                         </button>
                         <button
                           onClick={() => handleTogglePaid(q.id, !!q.has_paid)}
@@ -1109,10 +1116,9 @@ export default function AdminPage() {
                           }`}
                           title={q.has_paid ? "Marcar como No Pagado" : "Marcar como Pagado"}
                         >
-                          <span>💰</span>
-                          <span>{q.has_paid ? "Pagado" : "Pendiente"}</span>
+                          <span>💰<span className="hidden md:inline"> {q.has_paid ? "Pagado" : "Pendiente"}</span></span>
                         </button>
-                        <span className="text-xs font-bold bg-yellow-500/10 text-yellow-500 px-3 py-1 rounded-full">
+                        <span className="text-xs font-bold bg-yellow-500/10 text-yellow-500 px-3 py-1 rounded-full hidden sm:inline">
                           Borrador
                         </span>
                         <button
@@ -1121,8 +1127,7 @@ export default function AdminPage() {
                           className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 transition-colors disabled:opacity-50"
                           title="Eliminar Borrador"
                         >
-                          <UserX size={14} />
-                          <span>Eliminar</span>
+                          <UserX size={14} /><span className="hidden md:inline"> Eliminar</span>
                         </button>
                       </div>
                     </div>
@@ -1206,7 +1211,7 @@ export default function AdminPage() {
 
             <div className="flex flex-col gap-4">
               {(() => {
-                const matchesToRender = resultsTab === "groups" ? CHRONOLOGICAL_MATCHES : ALL_KNOCKOUT_MATCHES;
+                const matchesToRender = resultsTab === "groups" ? CHRONOLOGICAL_MATCHES : CHRONOLOGICAL_KNOCKOUT_MATCHES;
                 return matchesToRender.map((match) => {
                   const isKnockout = match.id.startsWith("M");
                   const homeCode = isKnockout ? officialBracket[match.id]?.home : (match as any).homeTeam;
@@ -1223,19 +1228,29 @@ export default function AdminPage() {
                   return (
                     <div key={match.id} className="bg-card border border-line rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 animate-in fade-in duration-200">
                       
-                      <div className="flex items-center justify-between w-full md:w-auto flex-1 gap-4">
-                        <div className="flex flex-col w-32 shrink-0">
+                      {/* Left: Info (with Schedule for Mobile) */}
+                      <div className="flex items-center justify-between w-full md:w-28 md:flex-col md:items-start md:justify-center shrink-0 border-b border-line/45 md:border-b-0 pb-2 md:pb-0 mb-1 md:mb-0">
+                        <div className="flex flex-col">
                           <span className="text-xs font-bold text-brand">{match.id}</span>
                           <span className="text-[10px] text-content-muted font-semibold mt-0.5">
                             {isKnockout ? ROUND_DESCRIPTIONS[(match as any).round] : `Grupo ${(match as any).group}`}
                           </span>
                         </div>
+                        {MATCH_SCHEDULES[match.id] && (
+                          <span className="text-[9px] text-content-muted font-semibold bg-panel px-2 py-0.5 rounded border border-line/35 md:hidden">
+                            {MATCH_SCHEDULES[match.id].date} @ {MATCH_SCHEDULES[match.id].time}
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* Center: Teams & Score Inputs */}
+                      <div className="flex items-center justify-between w-full md:w-auto flex-1 gap-1.5 sm:gap-4 py-1">
                         
-                        {/* Home */}
-                        <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
+                        {/* Home Team */}
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-1 justify-end min-w-0">
                           {home ? (
                             <>
-                              <span className="font-semibold text-content text-sm text-right truncate">
+                              <span className="font-semibold text-content text-xs sm:text-sm text-right truncate">
                                 {home.name}
                               </span>
                               <Flag iso2={home.iso2} name={home.name} size="md" />
@@ -1248,8 +1263,8 @@ export default function AdminPage() {
                           )}
                         </div>
 
-                        {/* Inputs */}
-                        <div className="flex items-center gap-2 px-4 shrink-0">
+                        {/* Score Inputs */}
+                        <div className="flex items-center gap-1.5 shrink-0 px-1">
                           <input
                             type="number"
                             disabled={!hasBothTeams}
@@ -1269,12 +1284,12 @@ export default function AdminPage() {
                           />
                         </div>
 
-                        {/* Away */}
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {/* Away Team */}
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
                           {away ? (
                             <>
                               <Flag iso2={away.iso2} name={away.name} size="md" />
-                              <span className="font-semibold text-content text-sm truncate">
+                              <span className="font-semibold text-content text-xs sm:text-sm truncate">
                                 {away.name}
                               </span>
                             </>
@@ -1286,6 +1301,15 @@ export default function AdminPage() {
                           )}
                         </div>
                       </div>
+
+                      {/* Right-Center: Date & Time Schedule (Desktop only) */}
+                      {MATCH_SCHEDULES[match.id] && (
+                        <div className="hidden md:flex flex-col text-right w-24 shrink-0 pr-1">
+                          <span className="text-[9px] text-content font-bold uppercase tracking-wider">Horario</span>
+                          <span className="text-[10px] text-content-muted mt-0.5 truncate">{MATCH_SCHEDULES[match.id].date.split(" de ")[0]}</span>
+                          <span className="text-[9px] text-brand font-semibold mt-0.5">{MATCH_SCHEDULES[match.id].time} hs</span>
+                        </div>
+                      )}
 
                       {/* Save Button for this specific match */}
                       <button
